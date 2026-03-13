@@ -19,10 +19,10 @@ class AdminUserSeeder extends Seeder
         }
 
         User::create([
-            'name' => 'Admin',
+            'first_name' => 'Admin',
+            'last_name' => 'User',
             'email' => $email,
-            // store hashed password in password_hash to match AuthController usage
-            'password_hash' => Hash::make('123456789'),
+            'phone' => '01234567891',
             'password' => Hash::make('123456789'),
             'usertype' => User::ROLE_ADMIN,
             'status' => 'active',

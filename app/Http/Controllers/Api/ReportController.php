@@ -24,7 +24,7 @@ class ReportController extends Controller
         ]);
 
         // send email to admins and sender
-        $admins = User::whereIn('usertype', [User::ROLE_ADMIN, User::ROLE_SUPER_ADMIN])->get();
+        $admins = User::whereIn('usertype', [User::ROLE_ADMIN])->get();
         foreach ($admins as $admin) {
             Mail::raw("New report from {$user->name}: {$data['report_text']}", function ($m) use ($admin) {
                 $m->to($admin->email)->subject('New user report');
@@ -42,7 +42,7 @@ class ReportController extends Controller
     {
         $user = $request->user();
 
-        if (! in_array($user->usertype, [User::ROLE_ADMIN, User::ROLE_SUPER_ADMIN], true)) {
+        if (! in_array($user->usertype, [User::ROLE_ADMIN], true)) {
             return response()->json(['message' => 'غير متاح لهذا المستخدم'], 403);
         }
 

@@ -22,7 +22,7 @@ class CheckPermission
         }
 
         // Only admins / super_admin have permission rows
-        if (! in_array($user->usertype, [\App\Models\User::ROLE_ADMIN, \App\Models\User::ROLE_SUPER_ADMIN], true)) {
+        if (! in_array($user->usertype, [\App\Models\User::ROLE_ADMIN], true)) {
             return response()->json(['message' => 'غير متاح لهذا المستخدم'], Response::HTTP_FORBIDDEN);
         }
 
