@@ -57,7 +57,6 @@ class DriverAuthController extends Controller
             'user'  => new DriverResource($user),
         ]);
     }
-
     // POST /Driver/register
     public function register(Request $request)
     {
@@ -66,6 +65,7 @@ class DriverAuthController extends Controller
             'last_name' => 'required|string|max:191',
             'phone' => 'required|string|unique:users,phone|max:11',
             'email' => 'nullable|email|unique:users,email',
+            'personal_image' => 'nullable|string|max:191',
         ]);
 
         if ($validator->fails()) {
@@ -121,5 +121,52 @@ class DriverAuthController extends Controller
         }
 
         return response()->json(['message' => 'Logged out']);
+    }
+    public function profile(Request $request)
+    {
+        $driver = $request->user(); // authenticated driver
+
+        return response()->json(new DriverResource($driver));
+    }
+    public function updateProfile(Request $request)
+    {
+        $driver = $request->user();
+
+        $validator = Validator::make($request->all(), [
+            'first_name' => 'required|string|max:191',
+            'last_name'  => 'required|string|max:191',
+            'phone'      => 'required|string|max:11|unique:users,phone,' . $driver->id,
+            'email'      => 'nullable|email|unique:users,email,' . $driver->id,
+            'profile_image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // Update basic fields
+        $driver->first_name = $request->first_name;
+        $driver->last_name  = $request->last_name;
+        $driver->phone      = $request->phone;
+        $driver->email      = $request->email;
+
+        // Handle profile image upload
+        if ($request->hasFile('profile_image')) {
+
+            // delete old image if exists
+            if ($driver->profile_image && file_exists(storage_path('app/public/' . $driver->profile_image))) {
+                unlink(storage_path('app/public/' . $driver->profile_image));
+            }
+
+            $path = $request->file('profile_image')->store('drivers/profile', 'public');
+            $driver->profile_image = $path;
+        }
+
+        $driver->save();
+
+        return response()->json([
+            'message' => 'Profile updated successfully',
+            'user'    => new DriverResource($driver),
+        ]);
     }
 }

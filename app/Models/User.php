@@ -4,12 +4,14 @@ namespace App\Models;
 
 // use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 class User extends Authenticatable
 {
+    use SoftDeletes;
     use HasApiTokens, HasFactory, Notifiable;
 
     // Role/user types
@@ -25,16 +27,17 @@ class User extends Authenticatable
     protected $fillable = [
         'first_name',
         'last_name',
+        'name',        
         'email',
         'phone',
         'password',
         'usertype',
         'status',
+        'personal_image',
         // driver document paths
         'nid_front',
         'nid_back',
         'license_image',
-        'personal_image',
         'criminal_record',
     ];
 

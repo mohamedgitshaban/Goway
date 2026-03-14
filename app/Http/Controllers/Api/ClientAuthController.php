@@ -126,4 +126,52 @@ class ClientAuthController extends Controller
 
         return response()->json(['message' => 'Logged out']);
     }
+    public function profile(Request $request)
+{
+    $client = $request->user(); // authenticated client
+
+    return response()->json(new ClientResource($client));
+}
+public function updateProfile(Request $request)
+{
+    $client = $request->user();
+
+    $validator = Validator::make($request->all(), [
+        'first_name' => 'required|string|max:191',
+        'last_name'  => 'required|string|max:191',
+        'phone'      => 'required|string|max:11|unique:users,phone,' . $client->id,
+        'email'      => 'nullable|email|unique:users,email,' . $client->id,
+        'profile_image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+    ]);
+
+    if ($validator->fails()) {
+        return response()->json(['errors' => $validator->errors()], 422);
+    }
+
+    // Update basic fields
+    $client->first_name = $request->first_name;
+    $client->last_name  = $request->last_name;
+    $client->phone      = $request->phone;
+    $client->email      = $request->email;
+
+    // Handle profile image upload
+    if ($request->hasFile('profile_image')) {
+
+        // delete old image if exists
+        if ($client->profile_image && file_exists(storage_path('app/public/' . $client->profile_image))) {
+            unlink(storage_path('app/public/' . $client->profile_image));
+        }
+
+        $path = $request->file('profile_image')->store('clients/profile', 'public');
+        $client->profile_image = $path;
+    }
+
+    $client->save();
+
+    return response()->json([
+        'message' => 'Profile updated successfully',
+        'user'    => new ClientResource($client),
+    ]);
+}
+
 }

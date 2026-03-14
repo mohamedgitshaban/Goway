@@ -10,7 +10,7 @@ use App\Models\Otp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
-// Wallets and driver flows moved to dedicated controllers
+// Wallets and admin flows moved to dedicated controllers
 
 class AuthController extends Controller
 {
@@ -65,7 +65,7 @@ class AuthController extends Controller
         return response()->json(['message' => 'OTP sent to email']);
     }
 
-    // POST /Driver/reset-password
+    // POST /admin/reset-password
     public function resetPassword(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -100,5 +100,51 @@ class AuthController extends Controller
         }
 
         return response()->json(['message' => 'Logged out']);
+    }
+    public function profile(Request $request)
+    {
+        $admin = $request->user(); // authenticated admin
+
+        return response()->json(new AdminResource($admin));
+    }
+    public function updateProfile(Request $request)
+    {
+        $admin = $request->user();
+        $validator = Validator::make($request->all(), [
+            'first_name' => 'required|string|max:191',
+            'last_name'  => 'required|string|max:191',
+            'phone'      => 'required|string|max:11|unique:users,phone,' . $admin->id,
+            'email'      => 'nullable|email|unique:users,email,' . $admin->id,
+            'profile_image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        // Update basic fields
+        $admin->first_name = $request->first_name;
+        $admin->last_name  = $request->last_name;
+        $admin->phone      = $request->phone;
+        $admin->email      = $request->email;
+
+        // Handle profile image upload
+        if ($request->hasFile('profile_image')) {
+
+            // delete old image if exists
+            if ($admin->profile_image && file_exists(storage_path('app/public/' . $admin->profile_image))) {
+                unlink(storage_path('app/public/' . $admin->profile_image));
+            }
+
+            $path = $request->file('profile_image')->store('admins/profile', 'public');
+            $admin->profile_image = $path;
+        }
+
+        $admin->save();
+
+        return response()->json([
+            'message' => 'Profile updated successfully',
+            'user'    => new AdminResource($admin),
+        ]);
     }
 }

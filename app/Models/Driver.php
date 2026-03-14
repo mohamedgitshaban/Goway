@@ -12,10 +12,13 @@ class Driver extends User
     {
         static::creating(function ($model) {
             $model->usertype = User::ROLE_DRIVER;
+            $model->name = $model->first_name . ' ' . $model->last_name;
         });
-        static::addGlobalScope('admin', function ($query) {
+        static::updating(function ($model) {
+            $model->name = $model->first_name . ' ' . $model->last_name;
+        });
+        static::addGlobalScope('drivers', function ($query) {
             $query->where('usertype', User::ROLE_DRIVER);
         });
     }
-    
 }

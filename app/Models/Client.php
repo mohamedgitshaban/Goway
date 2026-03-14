@@ -12,8 +12,12 @@ class Client extends User
     {
         static::creating(function ($model) {
             $model->usertype = User::ROLE_CLIENT;
+            $model->name = $model->first_name . ' ' . $model->last_name;
         });
-        static::addGlobalScope('admin', function ($query) {
+        static::updating(function ($model) {
+            $model->name = $model->first_name . ' ' . $model->last_name;
+        });
+        static::addGlobalScope('clients', function ($query) {
             $query->where('usertype', User::ROLE_CLIENT);
         });
     }
