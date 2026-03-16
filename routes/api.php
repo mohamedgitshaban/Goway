@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\DriverController;
+use App\Http\Controllers\Api\TripTypeController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -63,6 +64,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin',])->group(funct
         Route::get('/{id}', [ClientController::class, 'show']);       // show single
         Route::put('/{id}/activate', [ClientController::class, 'activate']);
         Route::put('/{id}/suspend', [ClientController::class, 'suspend']);
+        Route::put('/{id}/status-toggle', [ClientController::class, 'statusToggle']);
         Route::delete('/{id}', [ClientController::class, 'destroy']); // soft delete
         Route::put('/{id}/restore', [ClientController::class, 'restore']); // restore
     });
@@ -73,6 +75,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin',])->group(funct
         Route::get('/{id}', [DriverController::class, 'show']);
         Route::put('/{id}/activate', [DriverController::class, 'activate']);
         Route::put('/{id}/suspend', [DriverController::class, 'suspend']);
+        Route::put('/{id}/status-toggle', [DriverController::class, 'statusToggle']);
         Route::delete('/{id}', [DriverController::class, 'destroy']);
         Route::put('/{id}/restore', [DriverController::class, 'restore']);
     });
@@ -83,7 +86,17 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin',])->group(funct
         Route::get('/{id}', [AdminController::class, 'show']);
         Route::put('/{id}/activate', [AdminController::class, 'activate']);
         Route::put('/{id}/suspend', [AdminController::class, 'suspend']);
+        Route::put('/{id}/status-toggle', [AdminController::class, 'statusToggle']);
         Route::delete('/{id}', [AdminController::class, 'destroy']);
         Route::put('/{id}/restore', [AdminController::class, 'restore']);
+    });
+    Route::prefix('trip_types')->group(function () {
+        Route::get('/', [TripTypeController::class, 'index']);
+        Route::get('/export', [TripTypeController::class, 'export']);
+        Route::get('/{id}', [TripTypeController::class, 'show']);
+        Route::put('/{id}/activate', [TripTypeController::class, 'activate']);
+        Route::put('/{id}/suspend', [TripTypeController::class, 'suspend']);
+        Route::delete('/{id}', [TripTypeController::class, 'destroy']);
+        Route::put('/{id}/restore', [TripTypeController::class, 'restore']);
     });
 });

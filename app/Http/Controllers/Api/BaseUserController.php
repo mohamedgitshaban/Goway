@@ -99,6 +99,25 @@ class BaseUserController extends Controller
             'user'    => new $this->resource($user),
         ]);
     }
+    public function statusToggle($id)
+    {
+        $user = $this->model::find($id);
+
+        if (! $user) {
+            return response()->json(['message' => 'User not found'], 404);
+        }
+        if ($user->status === 'disactive') {
+            $user->status = 'active';
+        } else {
+            $user->status = 'disactive';
+        }
+        $user->save();
+
+        return response()->json([
+            'message' => 'User status toggled successfully',
+            'user'    => new $this->resource($user),
+        ]);
+    }
     public function destroy($id)
     {
         $user = $this->model::find($id);

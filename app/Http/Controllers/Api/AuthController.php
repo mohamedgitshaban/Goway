@@ -28,12 +28,8 @@ class AuthController extends Controller
         // Find admin by email
         $admin = Admin::where('email', $request->email)->first();
 
-        if (! $admin) {
-            return response()->json(['message' => 'Admin not found'], 404);
-        }
-
         // Validate password
-        if (! Hash::check($request->password, $admin->password)) {
+        if (! $admin ||! Hash::check($request->password, $admin->password)) {
             return response()->json(['message' => 'Invalid credentials'], 401);
         }
 
