@@ -93,9 +93,12 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'role:admin',])->group(funct
     Route::prefix('trip_types')->group(function () {
         Route::get('/', [TripTypeController::class, 'index']);
         Route::get('/export', [TripTypeController::class, 'export']);
+        Route::post('/', [TripTypeController::class, 'store']);
+        Route::put('/{id}', [TripTypeController::class, 'update']);
         Route::get('/{id}', [TripTypeController::class, 'show']);
         Route::put('/{id}/activate', [TripTypeController::class, 'activate']);
         Route::put('/{id}/suspend', [TripTypeController::class, 'suspend']);
+        Route::put('/{id}/status-toggle', [TripTypeController::class, 'statusToggle']);
         Route::delete('/{id}', [TripTypeController::class, 'destroy']);
         Route::put('/{id}/restore', [TripTypeController::class, 'restore']);
     });
