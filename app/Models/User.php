@@ -85,13 +85,4 @@ class User extends Authenticatable
         return $this->usertype === self::ROLE_CLIENT;
     }
 
-    public function wallets()
-    {
-        return $this->hasMany(\App\Models\Wallet::class);
-    }
-
-    public function adminPermissions()
-    {
-        return $this->hasMany(\App\Models\AdminPermission::class, 'admin_id');
-    }
 }
