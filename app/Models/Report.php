@@ -5,19 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Otp extends Model
+class Report extends Model
 {
     use HasFactory;
 
-    protected $table = 'otps';
-
     protected $fillable = [
         'user_id',
-        'code',
-        'expires_at',
+        'report_text',
     ];
-
-    protected $dates = ['expires_at'];
 
     public function user()
     {

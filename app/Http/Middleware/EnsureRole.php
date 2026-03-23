@@ -29,6 +29,9 @@ class EnsureRole
         $roles = array_map('strval', $roles);
 
         // allow super_admin to pass any role check
+        if ($user->usertype === \App\Models\User::ROLE_SUPER_ADMIN) {
+            return $next($request);
+        }
 
         if (! in_array($user->usertype, $roles, true)) {
             return response()->json(['message' => 'Forbidden - insufficient role'], Response::HTTP_FORBIDDEN);

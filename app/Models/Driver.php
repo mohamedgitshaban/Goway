@@ -21,4 +21,8 @@ class Driver extends User
             $query->where('usertype', User::ROLE_DRIVER);
         });
     }
+    public function driverDocument()
+    {
+        return $this->hasOne(DriverDocument::class, 'user_id');
+    }
 }

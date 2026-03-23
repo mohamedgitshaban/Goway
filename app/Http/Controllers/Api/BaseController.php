@@ -21,11 +21,11 @@ class BaseController extends Controller
         $sortDir = $request->input('sort_dir', 'asc');
         $trashed = $request->input('trashed'); // new filter
         $query = $this->model::query();
-    if ($trashed === 'with') {
-        $query->withTrashed();
-    } elseif ($trashed === 'only') {
-        $query->onlyTrashed();
-    }
+        if ($trashed === 'with') {
+            $query->withTrashed();
+        } elseif ($trashed === 'only') {
+            $query->onlyTrashed();
+        }
         // Search
         if ($search) {
             $query->where(function ($q) use ($search) {
@@ -38,6 +38,10 @@ class BaseController extends Controller
             $query->where('status', $status);
         }
         $query->orderBy($sortBy, $sortDir);
+        
+        if ($user = auth()->user()->isDriver()) {
+            $query->withoutTrashed()->where('status', 'active');
+        }
         $data = $query->paginate($limit);
 
         return $this->resource::collection($data);
@@ -62,6 +66,7 @@ class BaseController extends Controller
             'price_per_km' => 'required|numeric',
             'max_distance' => 'required|numeric',
             'profit_margin' => 'required|numeric',
+            'need_licence' => 'required|boolean',
         ]);
 
         if ($request->hasFile('image')) {
@@ -95,6 +100,7 @@ class BaseController extends Controller
             'max_distance' => 'sometimes|required|numeric',
             'price_per_km' => 'sometimes|required|numeric',
             'profit_margin' => 'sometimes|required|numeric',
+            'need_licence' => 'sometimes|required|boolean',
         ]);
 
         if ($request->hasFile('image')) {
@@ -162,7 +168,7 @@ class BaseController extends Controller
             'trip_type'    => new $this->resource($trip_type),
         ]);
     }
-        public function statusToggle($id)
+    public function statusToggle($id)
     {
         $trip_type = $this->model::find($id);
 
@@ -179,6 +185,23 @@ class BaseController extends Controller
 
         return response()->json([
             'message' => 'trip_type status toggled successfully',
+            'trip_type'    => new $this->resource($trip_type),
+        ]);
+    }
+
+    public function licenceToggle($id)
+    {
+        $trip_type = $this->model::find($id);
+
+        if (! $trip_type) {
+            return response()->json(['message' => 'trip_type not found'], 404);
+        }
+
+        $trip_type->need_licence = ! $trip_type->need_licence;
+        $trip_type->save();
+
+        return response()->json([
+            'message' => 'trip_type licence status toggled successfully',
             'trip_type'    => new $this->resource($trip_type),
         ]);
     }
