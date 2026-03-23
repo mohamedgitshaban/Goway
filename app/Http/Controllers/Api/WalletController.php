@@ -1,124 +1,96 @@
 <?php
 
 namespace App\Http\Controllers\Api;
-
-use App\Http\Controllers\Controller;
-use App\Models\Wallet;
-use App\Models\WalletTransaction;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+
+use App\Exports\WalletsExport;
+use App\Http\Controllers\Controller;
+use App\Http\Resources\WalletResource;
+use App\Models\Wallet;
+use Maatwebsite\Excel\Facades\Excel;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WalletController extends Controller
 {
     public function index(Request $request)
     {
-        $user = $request->user();
+        $limit   = $request->input('limit', 10);
+        $search  = $request->input('search');
+        $sortBy  = $request->input('sort_by', 'id');
+        $sortDir = $request->input('sort_dir', 'asc');
 
-        // Admins: return all wallets
-        if (in_array($user->usertype, [\App\Models\User::ROLE_ADMIN, \App\Models\User::ROLE_SUPER_ADMIN], true)) {
-            return response()->json(Wallet::with('user')->get());
+        $query = Wallet::with('user');
+
+        // Search (wallet id, user name, balance)
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('id', $search)
+                    ->orWhere('balance', $search)
+                    ->orWhereHas('user', function ($u) use ($search) {
+                        $u->where('name', 'LIKE', "%{$search}%");
+                    });
+            });
         }
 
-        // Drivers/Clients: return single wallet matching their type
-        $expectedType = $user->isDriver() ? 'driver_wallet' : ($user->isClient() ? 'client_wallet' : null);
-
-        if (! $expectedType) {
-            return response()->json(['message' => 'No wallet available for this user type'], 404);
+        // Sorting
+        if ($sortBy === 'user_name') {
+            $query->join('users', 'wallets.user_id', '=', 'users.id')
+                ->orderBy('users.name', $sortDir)
+                ->select('wallets.*');
+        } elseif (in_array($sortBy, ['id', 'balance'])) {
+            $query->orderBy($sortBy, $sortDir);
         }
 
-        $wallet = Wallet::where('user_id', $user->id)->where('wallet_type', $expectedType)->first();
+        // EXPORT MODE
+        if ($request->has('export')) {
+            $format = $request->input('export', 'xlsx'); // xlsx or csv
 
-        return response()->json($wallet);
-    }
-
-    public function transaction(Request $request)
-    {
-        $data = $request->validate([
-            'wallet_id' => 'required|exists:wallets,id',
-            'amount' => 'required|numeric|min:0.01',
-            'type' => 'required|in:credit,debit',
-            'description' => 'nullable|string',
-        ]);
-
-        $user = $request->user();
-
-        $wallet = Wallet::findOrFail($data['wallet_id']);
-
-        // If not admin, ensure wallet belongs to user and matches their wallet type
-        if (! in_array($user->usertype, [\App\Models\User::ROLE_ADMIN, \App\Models\User::ROLE_SUPER_ADMIN], true)) {
-            if ($wallet->user_id !== $user->id) {
-                return response()->json(['message' => 'غير متاح لهذا المستخدم'], 403);
+            if ($format === 'xlsx') {
+                return Excel::download(new WalletsExport($query), 'wallets.xlsx');
             }
 
-            $expectedType = $user->isDriver() ? 'driver_wallet' : ($user->isClient() ? 'client_wallet' : null);
-            if ($expectedType && $wallet->wallet_type !== $expectedType) {
-                return response()->json(['message' => 'غير متاح لهذا المستخدم'], 403);
-            }
+            // CSV export
+            $fileName = 'wallets.csv';
+
+            $response = new StreamedResponse(function () use ($query) {
+                $handle = fopen('php://output', 'w');
+
+                fputcsv($handle, ['Wallet ID', 'User Name', 'User Type', 'Balance']);
+
+                $query->chunk(200, function ($wallets) use ($handle) {
+                    foreach ($wallets as $wallet) {
+                        fputcsv($handle, [
+                            $wallet->id,
+                            $wallet->user->name,
+                            $wallet->user->type,
+                            $wallet->balance,
+                        ]);
+                    }
+                });
+
+                fclose($handle);
+            });
+
+            $response->headers->set('Content-Type', 'text/csv');
+            $response->headers->set('Content-Disposition', "attachment; filename=\"$fileName\"");
+
+            return $response;
         }
 
-        return DB::transaction(function () use ($wallet, $data, $user) {
-            $amount = $data['amount'];
+        // NORMAL JSON RESPONSE
+        $data = $query->paginate($limit);
 
-            if ($data['type'] === 'debit') {
-                if ($wallet->balance < $amount) {
-                    return response()->json(['message' => 'Insufficient balance'], 422);
-                }
-                $wallet->balance -= $amount;
-            } else {
-                $wallet->balance += $amount;
-            }
-
-            $wallet->save();
-
-            $tx = WalletTransaction::create([
-                'wallet_id' => $wallet->id,
-                'amount' => $amount,
-                'type' => $data['type'],
-                'description' => $data['description'] ?? null,
-                'performed_by' => $user->id,
-            ]);
-
-            return response()->json(['wallet' => $wallet, 'transaction' => $tx]);
-        });
+        return WalletResource::collection($data);
     }
 
-    /**
-     * Show a single wallet. Admins can view any wallet; users can view their own.
-     */
-    public function show(Request $request, $id)
+    public function show($id)
     {
-        $wallet = Wallet::with('user')->findOrFail($id);
-        $user = $request->user();
-        // Admins can view any wallet
-        if (in_array($user->usertype, [\App\Models\User::ROLE_ADMIN, \App\Models\User::ROLE_SUPER_ADMIN], true)) {
-            return response()->json($wallet);
+        
+        $wallet = Wallet::with('user')->find($id);
+        if (!$wallet) {
+            return response()->json(['message' => 'Wallet not found'], 404);
         }
 
-        // Non-admins can only view their own wallet and only the wallet matching their role
-        if ($wallet->user_id !== $user->id) {
-            return response()->json(['message' => 'غير متاح لهذا المستخدم'], 403);
-        }
-
-        $expectedType = $user->isDriver() ? 'driver_wallet' : ($user->isClient() ? 'client_wallet' : null);
-        if ($expectedType && $wallet->wallet_type !== $expectedType) {
-            return response()->json(['message' => 'غير متاح لهذا المستخدم'], 403);
-        }
-
-        return response()->json($wallet);
-    }
-
-    /**
-     * List wallets for a specific user (admin only)
-     */
-    public function userWallets(Request $request, $userId)
-    {
-        $user = $request->user();
-
-        if (! in_array($user->usertype, [\App\Models\User::ROLE_ADMIN, \App\Models\User::ROLE_SUPER_ADMIN], true)) {
-            return response()->json(['message' => 'غير متاح لهذا المستخدم'], 403);
-        }
-
-        $wallets = Wallet::where('user_id', $userId)->get();
-        return response()->json($wallets);
+        return new WalletResource($wallet);
     }
 }

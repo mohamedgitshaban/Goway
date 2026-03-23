@@ -9,19 +9,20 @@ class Wallet extends Model
 {
     use HasFactory;
 
-    protected $fillable = [
-        'user_id',
-        'wallet_type',
-        'balance',
-    ];
+    
+    protected $fillable = ['user_id', 'balance'];
 
+    public function scopeFilter($query, $filters)
+{
+    return $query
+        ->when($filters['wallet_id'] ?? null, fn($q, $v) => $q->where('id', $v))
+        ->when($filters['balance'] ?? null, fn($q, $v) => $q->where('balance', $v))
+        ->when($filters['user_name'] ?? null, function ($q, $v) {
+            $q->whereHas('user', fn($u) => $u->where('name', 'like', "%$v%"));
+        });
+}
     public function user()
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function transactions()
-    {
-        return $this->hasMany(WalletTransaction::class);
     }
 }

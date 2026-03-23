@@ -19,6 +19,7 @@ class DriverResource extends JsonResource
             'usertype'   => $this->usertype,
             'status'     => $this->status,
             'personal_image'  => $this->personal_image,
+            'wallet_balance' => $this->wallet ? $this->wallet->balance : 0,
             'documents' => $doc ? [
                 'id'                => $doc->id,
                 'age'               => $doc->age,

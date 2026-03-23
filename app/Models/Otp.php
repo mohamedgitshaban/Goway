@@ -16,7 +16,9 @@ class Otp extends Model
         'code',
         'expires_at',
     ];
-
+    protected $casts = [
+        'expires_at' => 'datetime',
+    ];
     protected $dates = ['expires_at'];
 
     public function user()
