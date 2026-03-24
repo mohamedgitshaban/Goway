@@ -114,4 +114,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::get('/', [WalletController::class, 'index']);
         Route::get('/{id}', [WalletController::class, 'show']);
     });
+    Route::prefix('documents')->group(function () {
+        Route::get('/{id}/accept', [\App\Http\Controllers\Api\DriverDocumentController::class, 'accept']);
+        Route::post('/{id}/reject', [\App\Http\Controllers\Api\DriverDocumentController::class, 'reject']);
+    });
 });

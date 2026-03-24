@@ -17,6 +17,7 @@ class TripTypeResource extends JsonResource
                 'name_en'      => $this->name_en,
                 'name_ar'      => $this->name_ar,
                 'need_licence' => $this->need_licence,
+                'image'         => $this->image,
             ];
         }
 

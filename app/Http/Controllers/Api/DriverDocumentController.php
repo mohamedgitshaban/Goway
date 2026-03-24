@@ -41,7 +41,7 @@ class DriverDocumentController extends Controller
             ['user_id' => $user->id],
             $documentData
         );
-
+        $user->load('driverDocument');
         // Update user status
         $user->status = 'inreview';
         $user->save();
@@ -58,10 +58,11 @@ class DriverDocumentController extends Controller
     private function validateRequest(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'age' => 'required|integer|min:16|max:80',
+            'age' => 'required|integer|min:10|max:80',
 
             'nid_front' => 'nullable|mimes:jpg,jpeg,png,pdf',
             'nid_back'  => 'nullable|mimes:jpg,jpeg,png,pdf',
+            'birth_front'  => 'nullable|mimes:jpg,jpeg,png,pdf',
 
             'parent_nid_front' => 'nullable|mimes:jpg,jpeg,png,pdf',
             'parent_nid_back'  => 'nullable|mimes:jpg,jpeg,png,pdf',
@@ -87,6 +88,9 @@ class DriverDocumentController extends Controller
 
             // If age < 18 → parent NID required
             if ($age < 18) {
+                if (!$request->hasFile('birth_front')) {
+                    $validator->errors()->add('birth_front', 'Birth certificate front is required for drivers under 18.');
+                }
                 if (!$request->hasFile('parent_nid_front')) {
                     $validator->errors()->add('parent_nid_front', 'Parent NID front is required for drivers under 18.');
                 }
@@ -160,9 +164,9 @@ class DriverDocumentController extends Controller
     /* ---------------------------------------------------------
      *  ADMIN ACTIONS
      * --------------------------------------------------------- */
-    public function accept($userId)
+    public function accept($id)
     {
-        $doc = DriverDocument::where('user_id', $userId)->first();
+        $doc = DriverDocument::where('id', $id)->first();
 
         if (! $doc) {
             return response()->json(['message' => 'Document not found'], 404);
@@ -178,9 +182,9 @@ class DriverDocumentController extends Controller
         return response()->json(['message' => 'Documents accepted']);
     }
 
-    public function reject(Request $request, $userId)
+    public function reject(Request $request, $id)
     {
-        $doc = DriverDocument::where('user_id', $userId)->first();
+        $doc = DriverDocument::where('id', $id)->first();
 
         if (! $doc) {
             return response()->json(['message' => 'Document not found'], 404);
@@ -203,9 +207,9 @@ class DriverDocumentController extends Controller
     /* ---------------------------------------------------------
      *  SHOW DOCUMENT
      * --------------------------------------------------------- */
-    public function show($userId)
+    public function show($id)
     {
-        $doc = DriverDocument::where('user_id', $userId)->first();
+        $doc = DriverDocument::where('id', $id)->first();
 
         if (! $doc) {
             return response()->json(['message' => 'Document not found'], 404);

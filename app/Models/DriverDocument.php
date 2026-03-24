@@ -12,6 +12,7 @@ class DriverDocument extends Model
     protected $fillable = [
         'user_id',
         'age',
+        'birth_front',
 
         // Driver NID
         'nid_front',

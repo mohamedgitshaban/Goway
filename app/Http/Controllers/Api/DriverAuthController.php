@@ -49,7 +49,10 @@ class DriverAuthController extends Controller
         if (! $otp || $otp->code !== $request->input('otp') || $otp->expires_at->isPast()) {
             return response()->json(['message' => 'Invalid or expired OTP'], 401);
         }
-
+        if (! $user->driverDocument) {
+            $user->status = 'pending_document';
+            $user->save();
+        }
         $token = $user->createToken('api-token')->plainTextToken;
 
         return response()->json([
