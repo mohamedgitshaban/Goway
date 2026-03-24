@@ -11,6 +11,7 @@ class TripType extends Model
     use HasFactory , SoftDeletes;
 
     protected $fillable = [
+        'id',
         'name_en',
         'name_ar',
         'image',

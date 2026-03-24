@@ -281,7 +281,7 @@ class DriverDocumentController extends Controller
             'reject_reason' => null,
         ]);
 
-        $doc->user->update(['status' => 'active']);
+        $doc->driver->update(['status' => 'active']);
 
         return response()->json(['message' => 'Documents accepted']);
     }
@@ -294,17 +294,16 @@ class DriverDocumentController extends Controller
             return response()->json(['message' => 'Document not found'], 404);
         }
 
-        $data = $request->validate([
+        $validator = Validator::make($request->all(), [
             'reason' => 'required|string',
         ]);
-
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
+        }
         $doc->update([
             'status' => 'rejected',
-            'reject_reason' => $data['reason'],
+            'reject_reason' => $request->reason,
         ]);
-
-        $doc->user->update(['status' => 'rejected_document']);
-
         return response()->json(['message' => 'Documents rejected']);
     }
 

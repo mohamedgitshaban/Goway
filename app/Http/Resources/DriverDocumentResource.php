@@ -22,8 +22,11 @@ class DriverDocumentResource extends JsonResource
 
             // Trip type info
             'trip_type' => [
-                'id'   => $this->tripType?->id,
-                'name' => $this->tripType?->name,   // ⭐ SEARCHABLE FIELD
+                'id'   => $this->tripType->id,
+                'name_ar' => $this->tripType->name_ar,
+                'name_en' => $this->tripType->name_en,
+                'image' => $this->tripType->image,
+            // ⭐ SEARCHABLE FIELD
             ],
 
             // Document URLs

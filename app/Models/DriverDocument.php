@@ -43,7 +43,7 @@ class DriverDocument extends Model
      */
     public function driver()
     {
-        return $this->belongsTo(Driver::class);
+        return $this->belongsTo(Driver::class, 'user_id');
     }
 
     /**
@@ -79,6 +79,6 @@ class DriverDocument extends Model
     }
     public function tripType()
     {
-        return $this->belongsTo(TripType::class);
+        return $this->belongsTo(TripType::class , 'trip_type_id');
     }
 }
