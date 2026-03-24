@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\DriverDocumentResource;
 use App\Models\Driver;
 use App\Models\DriverDocument;
 use Illuminate\Http\Request;
@@ -11,6 +12,109 @@ use Illuminate\Support\Facades\Validator;
 
 class DriverDocumentController extends Controller
 {
+    public function index(Request $request)
+    {
+        $limit   = $request->input('limit', 10);
+        $search  = $request->input('search');
+        $status  = $request->input('status');
+        $sortBy  = $request->input('sort_by', 'id');
+        $sortDir = $request->input('sort_dir', 'asc');
+
+        $query = DriverDocument::with(['driver', 'tripType']);
+
+        /* -----------------------------------------
+     * SEARCH (driver name, phone, doc id, trip type)
+     * ----------------------------------------- */
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                $q->where('id', $search)
+                    ->orWhere('age', $search)
+                    ->orWhereHas('driver', function ($u) use ($search) {
+                        $u->where('name', 'LIKE', "%{$search}%")
+                            ->orWhere('phone', 'LIKE', "%{$search}%");
+                    })
+                    ->orWhereHas('tripType', function ($t) use ($search) {
+                        $t->where('name', 'LIKE', "%{$search}%");
+                    });
+            });
+        }
+
+        /* -----------------------------------------
+     * FILTER BY STATUS
+     * ----------------------------------------- */
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        /* -----------------------------------------
+     * SORTING
+     * ----------------------------------------- */
+        if ($sortBy === 'trip_type') {
+            $query->join('trip_types', 'driver_documents.trip_type_id', '=', 'trip_types.id')
+                ->orderBy('trip_types.name', $sortDir)
+                ->select('driver_documents.*');
+        } elseif (in_array($sortBy, ['id', 'age', 'status'])) {
+            $query->orderBy($sortBy, $sortDir);
+        }
+
+        /* -----------------------------------------
+     * EXPORT (CSV or XLSX)
+     * ----------------------------------------- */
+        if ($request->has('export')) {
+            $format = $request->input('export', 'xlsx'); // xlsx or csv
+
+            if ($format === 'xlsx') {
+                return \Maatwebsite\Excel\Facades\Excel::download(
+                    new \App\Exports\DriverDocumentsExport($query),
+                    'driver_documents.xlsx'
+                );
+            }
+
+            // CSV export
+            $fileName = 'driver_documents.csv';
+
+            $response = new \Symfony\Component\HttpFoundation\StreamedResponse(function () use ($query) {
+                $handle = fopen('php://output', 'w');
+
+                fputcsv($handle, [
+                    'ID',
+                    'Driver Name',
+                    'Phone',
+                    'Age',
+                    'Trip Type',
+                    'Status'
+                ]);
+
+                $query->chunk(200, function ($docs) use ($handle) {
+                    foreach ($docs as $doc) {
+                        fputcsv($handle, [
+                            $doc->id,
+                            $doc->driver->name,
+                            $doc->driver->phone,
+                            $doc->age,
+                            $doc->tripType?->name,
+                            $doc->status,
+                        ]);
+                    }
+                });
+
+                fclose($handle);
+            });
+
+            $response->headers->set('Content-Type', 'text/csv');
+            $response->headers->set('Content-Disposition', "attachment; filename=\"$fileName\"");
+
+            return $response;
+        }
+
+        /* -----------------------------------------
+     * NORMAL JSON RESPONSE
+     * ----------------------------------------- */
+        $data = $query->paginate($limit);
+
+        return DriverDocumentResource::collection($data);
+    }
+
     /**
      * Driver uploads all documents in one request
      */

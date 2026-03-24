@@ -31,6 +31,7 @@ class DriverDocument extends Model
         // Review status
         'status',
         'reject_reason',
+        'trip_type_id',
     ];
 
     protected $casts = [
@@ -75,5 +76,9 @@ class DriverDocument extends Model
     public function isInReview(): bool
     {
         return $this->status === 'inreview';
+    }
+    public function tripType()
+    {
+        return $this->belongsTo(TripType::class);
     }
 }
