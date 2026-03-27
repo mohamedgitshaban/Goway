@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\DriverController;
+use App\Http\Controllers\Api\FavoriteLocationController;
 use App\Http\Controllers\Api\TripTypeController;
 use App\Http\Controllers\Api\WalletController;
 use Illuminate\Http\Request;
@@ -52,6 +53,8 @@ Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::get('/profile', [\App\Http\Controllers\Api\ClientAuthController::class, 'profile']);
         Route::put('/profile', [\App\Http\Controllers\Api\ClientAuthController::class, 'updateProfile']);
     });
+    Route::apiResource('favorite-locations', FavoriteLocationController::class);
+
 });
 
 // Admin-only routes with permission checks

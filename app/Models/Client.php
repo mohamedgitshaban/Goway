@@ -21,4 +21,8 @@ class Client extends User
             $query->where('usertype', User::ROLE_CLIENT);
         });
     }
+    public function favoriteLocations()
+    {
+        return $this->hasMany(FavoriteLocation::class , 'user_id');
+    }
 }
