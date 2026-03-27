@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\FavoriteLocationController;
 use App\Http\Controllers\Api\TripTypeController;
+use App\Http\Controllers\Api\UserCouponController;
 use App\Http\Controllers\Api\WalletController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -54,6 +55,8 @@ Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::put('/profile', [\App\Http\Controllers\Api\ClientAuthController::class, 'updateProfile']);
     });
     Route::apiResource('favorite-locations', FavoriteLocationController::class);
+    Route::get('/offers', [\App\Http\Controllers\Api\OfferController::class, 'index']);
+    Route::get('/coupons', [UserCouponController::class, 'allCoupons']);
 
 });
 
@@ -122,4 +125,6 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::post('/{id}/accept', [\App\Http\Controllers\Api\DriverDocumentController::class, 'accept']);
         Route::post('/{id}/reject', [\App\Http\Controllers\Api\DriverDocumentController::class, 'reject']);
     });
+    Route::apiResource('offers', \App\Http\Controllers\Api\OfferController::class);
+    Route::apiResource('coupons', \App\Http\Controllers\Api\CouponController::class);
 });
