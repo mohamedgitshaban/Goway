@@ -33,7 +33,8 @@ class User extends Authenticatable
         'password',
         'usertype',
         'status',
-        'personal_image'
+        'personal_image',
+        'is_online'
     ];
 
     /**

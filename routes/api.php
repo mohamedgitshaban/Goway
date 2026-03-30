@@ -39,6 +39,9 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::post('/logout', [\App\Http\Controllers\Api\DriverAuthController::class, 'logout']);
         Route::get('/profile', [\App\Http\Controllers\Api\DriverAuthController::class, 'profile']);
         Route::put('/profile', [\App\Http\Controllers\Api\DriverAuthController::class, 'updateProfile']);
+        Route::put('/goOnline', [\App\Http\Controllers\Api\DriverAuthController::class, 'goOnline']);
+        Route::put('/goOffline', [\App\Http\Controllers\Api\DriverAuthController::class, 'goOffline']);
+        Route::put('/toggleonlinestatus', [\App\Http\Controllers\Api\DriverAuthController::class, 'toggleonlinestatus']);
     });
     Route::prefix('documents')->group(function () {
         Route::get('trip_types', [\App\Http\Controllers\Api\TripTypeController::class, 'index']);

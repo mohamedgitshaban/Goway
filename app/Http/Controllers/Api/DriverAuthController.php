@@ -54,7 +54,8 @@ class DriverAuthController extends Controller
             $user->save();
         }
         $token = $user->createToken('api-token')->plainTextToken;
-
+        $user->is_online = true;
+        $user->save();
         return response()->json([
             'token' => $token,
             'user'  => new DriverResource($user),
@@ -109,7 +110,8 @@ class DriverAuthController extends Controller
         }
 
         $token = $user->createToken('api-token')->plainTextToken;
-
+        $user->is_online = true;
+        $user->save();
         return response()->json([
             'token' => $token,
             'user'  => new DriverResource($user),
@@ -120,6 +122,8 @@ class DriverAuthController extends Controller
     {
         $user = $request->user();
         if ($user && $request->user()->currentAccessToken()) {
+            $user->is_online = false;
+            $user->save();
             $request->user()->currentAccessToken()->delete();
         }
 
@@ -171,5 +175,25 @@ class DriverAuthController extends Controller
             'message' => 'Profile updated successfully',
             'user'    => new DriverResource($driver),
         ]);
+    }
+    public function goOnline()
+    {
+        $driver = auth()->user();
+        $driver->update(['is_online' => true]);
+        return response()->json(['message' => 'Driver is now online']);
+    }
+
+    public function goOffline()
+    {
+        $driver = auth()->user();
+        $driver->update(['is_online' => false]);
+        return response()->json(['message' => 'Driver is now offline']);
+    }
+
+    public function toggleonlinestatus()
+    {
+        $driver = auth()->user();
+        $driver->update(['is_online' => !$driver->is_online]);
+        return response()->json(['is_online' => $driver->is_online]);
     }
 }
