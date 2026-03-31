@@ -1,0 +1,33 @@
+<?php
+
+namespace App\Events;
+
+use App\Models\Trip;
+use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Queue\SerializesModels;
+
+class NegotiationAccepted implements ShouldBroadcastNow
+{
+    use SerializesModels;
+
+    public function __construct(public Trip $trip) {}
+
+    public function broadcastOn()
+    {
+        return new PrivateChannel("trip.{$this->trip->id}");
+    }
+
+    public function broadcastAs()
+    {
+        return 'negotiation_accepted';
+    }
+
+    public function broadcastWith()
+    {
+        return [
+            'trip'       => $this->trip,
+            'accepted_at'   => now()->toISOString(),
+        ];
+    }
+}

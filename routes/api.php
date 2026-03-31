@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ClientController;
+use App\Http\Controllers\Api\ClientTripController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\FavoriteLocationController;
 use App\Http\Controllers\Api\TripTypeController;
@@ -50,6 +51,11 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
     });
     Route::post('/location', [\App\Http\Controllers\Api\DriverLocationController::class, 'update']);
     Route::post('/trips/{trip}/accept', [\App\Http\Controllers\Api\DriverTripController::class, 'accept']);
+    Route::post('/trips/{trip}/arrived', [\App\Http\Controllers\Api\DriverTripController::class, 'arrived']);
+    Route::post('/trips/{trip}/start', [\App\Http\Controllers\Api\DriverTripController::class, 'start']);
+    Route::post('/trips/{trip}/complete', [\App\Http\Controllers\Api\DriverTripController::class, 'complete']);
+    Route::post('/trips/{trip}/cancel', [\App\Http\Controllers\Api\DriverTripController::class, 'cancel']);
+    Route::post('/driver/trips/{trip}/negotiate', [\App\Http\Controllers\Api\DriverTripController::class, 'negotiate']);
 });
 
 // Client-specific grouped endpoints
@@ -65,6 +71,10 @@ Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(functio
     Route::get('/nearby-drivers', [\App\Http\Controllers\Api\ClientNearbyDriversController::class, 'index']);
     Route::post('/trips/estimate', [\App\Http\Controllers\Api\ClientTripController::class, 'estimate']);
     Route::post('/trips', [\App\Http\Controllers\Api\ClientTripController::class, 'store']);
+    Route::post('/trips/{trip}/cancel', [\App\Http\Controllers\Api\ClientTripController::class, 'cancel']);
+    Route::post('/trips/{trip}/negotiate/accept', [ClientTripController::class, 'acceptNegotiation']);
+    Route::post('/trips/{trip}/negotiate/reject', [ClientTripController::class, 'rejectNegotiation']);
+    Route::post('/trips/{trip}/negotiate/counter', [ClientTripController::class, 'counterNegotiation']);
 });
 
 // Admin-only routes with permission checks
