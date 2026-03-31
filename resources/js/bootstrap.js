@@ -31,7 +31,7 @@ window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 //     enabledTransports: ['ws', 'wss'],
 // });
 import Echo from 'laravel-echo';
-import Ably from '@ably/ably-js';
+import * as Ably from 'ably';
 
 window.Ably = Ably;
 
@@ -39,3 +39,4 @@ window.Echo = new Echo({
     broadcaster: 'ably',
     key: import.meta.env.VITE_ABLY_KEY,
 });
+
