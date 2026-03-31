@@ -48,6 +48,8 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::post('/upload', [\App\Http\Controllers\Api\DriverDocumentController::class, 'uploadDocuments']);
         Route::get('/', [\App\Http\Controllers\Api\DriverDocumentController::class, 'index']);
     });
+    Route::post('/location', [\App\Http\Controllers\Api\DriverLocationController::class, 'update']);
+    Route::post('/trips/{trip}/accept', [\App\Http\Controllers\Api\DriverTripController::class, 'accept']);
 });
 
 // Client-specific grouped endpoints
@@ -60,7 +62,9 @@ Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(functio
     Route::apiResource('favorite-locations', FavoriteLocationController::class);
     Route::get('/offers', [\App\Http\Controllers\Api\OfferController::class, 'index']);
     Route::get('/coupons', [UserCouponController::class, 'allCoupons']);
-
+    Route::get('/nearby-drivers', [\App\Http\Controllers\Api\ClientNearbyDriversController::class, 'index']);
+    Route::post('/trips/estimate', [\App\Http\Controllers\Api\ClientTripController::class, 'estimate']);
+    Route::post('/trips', [\App\Http\Controllers\Api\ClientTripController::class, 'store']);
 });
 
 // Admin-only routes with permission checks

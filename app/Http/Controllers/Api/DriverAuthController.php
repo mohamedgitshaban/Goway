@@ -9,6 +9,7 @@ use App\Models\Otp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 
 class DriverAuthController extends Controller
 {
@@ -120,15 +121,26 @@ class DriverAuthController extends Controller
     // POST /Driver/logout (protected)
     public function logout(Request $request)
     {
-        $user = $request->user();
-        if ($user && $request->user()->currentAccessToken()) {
-            $user->is_online = false;
-            $user->save();
-            $request->user()->currentAccessToken()->delete();
+        $driver = $request->user();
+
+        if ($driver && $driver->currentAccessToken()) {
+            $driver->is_online = false;
+            $driver->save();
+
+            // Remove from Redis
+            Redis::del("driver:{$driver->id}:location");
+
+            $keys = Redis::keys("geohash:drivers:*");
+            foreach ($keys as $key) {
+                Redis::srem($key, $driver->id);
+            }
+
+            $driver->currentAccessToken()->delete();
         }
 
         return response()->json(['message' => 'Logged out']);
     }
+
     public function profile(Request $request)
     {
         $driver = $request->user(); // authenticated driver
@@ -187,13 +199,34 @@ class DriverAuthController extends Controller
     {
         $driver = auth()->user();
         $driver->update(['is_online' => false]);
+
+        // Remove from Redis
+        Redis::del("driver:{$driver->id}:location");
+
+        // Remove from all geohash sets
+        $keys = Redis::keys("geohash:drivers:*");
+        foreach ($keys as $key) {
+            Redis::srem($key, $driver->id);
+        }
+
         return response()->json(['message' => 'Driver is now offline']);
     }
+
 
     public function toggleonlinestatus()
     {
         $driver = auth()->user();
         $driver->update(['is_online' => !$driver->is_online]);
+        if (! $driver->is_online) {
+            // Remove from Redis
+            Redis::del("driver:{$driver->id}:location");
+
+            // Remove from all geohash sets
+            $keys = Redis::keys("geohash:drivers:*");
+            foreach ($keys as $key) {
+                Redis::srem($key, $driver->id);
+            }
+        }
         return response()->json(['is_online' => $driver->is_online]);
     }
 }

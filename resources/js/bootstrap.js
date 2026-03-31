@@ -30,3 +30,12 @@ window.axios.defaults.headers.common['X-Requested-With'] = 'XMLHttpRequest';
 //     forceTLS: (import.meta.env.VITE_PUSHER_SCHEME ?? 'https') === 'https',
 //     enabledTransports: ['ws', 'wss'],
 // });
+import Echo from 'laravel-echo';
+import Ably from '@ably/ably-js';
+
+window.Ably = Ably;
+
+window.Echo = new Echo({
+    broadcaster: 'ably',
+    key: import.meta.env.VITE_ABLY_KEY,
+});
