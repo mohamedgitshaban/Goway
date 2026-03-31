@@ -42,3 +42,7 @@ Broadcast::channel('driver.status.{driverId}', function (User $user, $driverId) 
 Broadcast::channel('nearby.drivers.{geohash}', function () {
     return true;
 });
+
+Broadcast::channel('trip.locked', function () {
+    return true;
+});

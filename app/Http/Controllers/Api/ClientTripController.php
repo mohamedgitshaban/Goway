@@ -12,6 +12,7 @@ use App\Events\NewTripRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
+use App\Support\GeoHash;
 
 class ClientTripController extends Controller
 {
@@ -41,7 +42,7 @@ class ClientTripController extends Controller
             $tripType = TripType::findOrFail($data['trip_type_id']);
 
             // TODO: حساب المسافة الفعلية
-            $distanceKm = 10.0;
+            $distanceKm = $this->calculateTripDistance($data);
 
             $baseFare    = $tripType->base_fare;
             $pricePerKm  = $tripType->price_per_km;
@@ -70,7 +71,14 @@ class ClientTripController extends Controller
             }
 
             $finalPrice = max(0, $original - $discountAmount);
-
+            if ($data['payment_method'] === 'wallet' && $user->wallet_balance < $finalPrice) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Insufficient wallet balance',
+                    'required_amount' => $finalPrice,
+                    'wallet_balance' => $user->wallet_balance,
+                ], 400);
+            }
             $trip = Trip::create([
                 'client_id'      => $user->id,
                 'trip_type_id'   => $tripType->id,
@@ -111,9 +119,24 @@ class ClientTripController extends Controller
             | 🔥 إرسال الرحلة للسائقين القريبين (geohash)
             |--------------------------------------------------------------------------
             */
-            $originGeohash = $this->calculateGeohash($trip->origin_lat, $trip->origin_lng);
+            $originGeohash = GeoHash::encode($trip->origin_lat, $trip->origin_lng, 7);
 
-            $nearbyDrivers = Redis::smembers("geohash:drivers:{$originGeohash}");
+            $cells = array_merge(
+                [$originGeohash],
+                GeoHash::neighbors($originGeohash)
+            );
+
+            $nearbyDrivers = [];
+
+            foreach ($cells as $cell) {
+                $nearbyDrivers = array_merge(
+                    $nearbyDrivers,
+                    Redis::smembers("geohash:drivers:{$cell}")
+                );
+            }
+
+            $nearbyDrivers = array_unique($nearbyDrivers);
+
 
             foreach ($nearbyDrivers as $driverId) {
                 broadcast(new NewTripRequest($trip, $driverId));
@@ -140,8 +163,7 @@ class ClientTripController extends Controller
         ]);
 
         // TODO: احسب المسافة الفعلية
-        $distanceKm = 10.0;
-
+        $distanceKm = $this->calculateTripDistance($data);
         $tripTypes = \App\Models\TripType::all();
 
         $estimates = [];
@@ -169,10 +191,152 @@ class ClientTripController extends Controller
             'estimates' => $estimates,
         ]);
     }
-
-
-    private function calculateGeohash($lat, $lng)
+    private function calculateTripDistance(array $data): float
     {
-        return substr(md5($lat . $lng), 0, 6); // placeholder
+        $points = [];
+
+        // origin
+        $points[] = [
+            'lat' => $data['origin_lat'],
+            'lng' => $data['origin_lng'],
+        ];
+
+        // waypoints
+        if (!empty($data['waypoints'])) {
+            foreach ($data['waypoints'] as $wp) {
+                $points[] = [
+                    'lat' => $wp['lat'],
+                    'lng' => $wp['lng'],
+                ];
+            }
+        }
+
+        // destination
+        $points[] = [
+            'lat' => $data['destination_lat'],
+            'lng' => $data['destination_lng'],
+        ];
+
+        // احسب المسافة بين كل نقطتين متتاليتين
+        $totalKm = 0;
+
+        for ($i = 0; $i < count($points) - 1; $i++) {
+            $totalKm += GeoHash::distanceKm(
+                $points[$i]['lat'],
+                $points[$i]['lng'],
+                $points[$i + 1]['lat'],
+                $points[$i + 1]['lng']
+            );
+        }
+
+        return round($totalKm, 2);
     }
+    public function cancel(Request $request, Trip $trip)
+    {
+        $client = $request->user();
+
+        // 1) تأكيد إن العميل هو صاحب الرحلة
+        if ($trip->client_id !== $client->id) {
+            return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
+        }
+
+        // 2) الرحلة لا يمكن إلغاؤها بعد البدء
+        if (! in_array($trip->status, ['searching_driver', 'driver_assigned', 'driver_arrived'])) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Trip cannot be cancelled at this stage'
+            ], 400);
+        }
+
+        // 3) تحديث حالة الرحلة
+        $trip->update([
+            'status' => 'cancelled_by_client',
+            'cancelled_at' => now(),
+            'cancelled_by' => 'client',
+            'cancel_reason' => $request->cancel_reason ?? null,
+            'cancel_description' => $request->cancel_description ?? null,
+        ]);
+
+        // 4) إرسال Event للسائق
+        broadcast(new \App\Events\TripCancelled($trip))->toOthers();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Trip cancelled successfully',
+            'trip' => $trip,
+        ]);
+    }
+    public function acceptNegotiation(Request $request, Trip $trip)
+{
+    $client = $request->user();
+
+    if ($trip->client_id !== $client->id) {
+        return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
+    }
+
+    if ($trip->negotiation_status !== 'pending') {
+        return response()->json(['status' => false, 'message' => 'No pending offer'], 400);
+    }
+
+    // قبول السعر الجديد
+    $trip->update([
+        'negotiated_price_before' => $trip->final_price,
+        'negotiated_price_after' => $trip->negotiation_price,
+        'final_price' => $trip->negotiation_price,
+        'negotiation_status' => 'accepted',
+    ]);
+
+    broadcast(new \App\Events\NegotiationAccepted($trip))->toOthers();
+
+    return response()->json([
+        'status' => true,
+        'message' => 'Offer accepted',
+        'final_price' => $trip->final_price,
+    ]);
+}
+public function rejectNegotiation(Request $request, Trip $trip)
+{
+    $client = $request->user();
+
+    if ($trip->client_id !== $client->id) {
+        return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
+    }
+
+    $trip->update([
+        'negotiation_status' => 'rejected',
+    ]);
+
+    broadcast(new \App\Events\NegotiationRejected($trip))->toOthers();
+
+    return response()->json([
+        'status' => true,
+        'message' => 'Offer rejected',
+    ]);
+}
+public function counterNegotiation(Request $request, Trip $trip)
+{
+    $client = $request->user();
+
+    $data = $request->validate([
+        'counter_price' => 'required|numeric|min:1',
+    ]);
+
+    if ($trip->client_id !== $client->id) {
+        return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
+    }
+
+    $trip->update([
+        'negotiation_status' => 'counter',
+        'negotiation_price' => $data['counter_price'],
+    ]);
+
+    broadcast(new \App\Events\NegotiationCounter($trip))->toOthers();
+
+    return response()->json([
+        'status' => true,
+        'message' => 'Counter offer sent',
+        'counter_price' => $data['counter_price'],
+    ]);
+}
+
 }

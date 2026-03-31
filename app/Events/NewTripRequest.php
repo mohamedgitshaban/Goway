@@ -1,16 +1,18 @@
-<?php 
+<?php
+
 namespace App\Events;
 
 use App\Models\Trip;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Queue\SerializesModels;
-class NewTripRequest implements ShouldBroadcast
+
+class NewTripRequest implements ShouldBroadcastNow
 {
     use SerializesModels;
 
     public function __construct(
-        public \App\Models\Trip $trip,
+        public Trip $trip,
         public int $driverId
     ) {}
 
@@ -35,13 +37,15 @@ class NewTripRequest implements ShouldBroadcast
             'origin' => [
                 'lat' => $this->trip->origin_lat,
                 'lng' => $this->trip->origin_lng,
+                'address' => $this->trip->origin_address,
             ],
             'destination' => [
                 'lat' => $this->trip->destination_lat,
                 'lng' => $this->trip->destination_lng,
+                'address' => $this->trip->destination_address,
             ],
             'final_price' => $this->trip->final_price,
+            'trip_type' => $this->trip->tripType->name_en,
         ];
     }
 }
-

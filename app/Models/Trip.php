@@ -24,6 +24,8 @@ class Trip extends Model
         'negotiation_enabled',
         'negotiated_price_before',
         'negotiated_price_after',
+        'negotiation_price',
+        'negotiation_status',
         'origin_lat',
         'origin_lng',
         'origin_address',

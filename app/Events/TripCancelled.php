@@ -1,15 +1,17 @@
 <?php
+
 namespace App\Events;
 
 use App\Models\Trip;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Queue\SerializesModels;
-class DriverAssigned implements ShouldBroadcast
+
+class TripCancelled implements ShouldBroadcastNow
 {
     use SerializesModels;
 
-    public function __construct(public \App\Models\Trip $trip) {}
+    public function __construct(public Trip $trip) {}
 
     public function broadcastOn()
     {
@@ -18,14 +20,14 @@ class DriverAssigned implements ShouldBroadcast
 
     public function broadcastAs()
     {
-        return 'driver_assigned';
+        return 'trip_cancelled';
     }
 
     public function broadcastWith()
     {
         return [
             'trip' => $this->trip,
-            'assigned_at' => now()->toISOString(),
+            'cancelled_at' => now()->toISOString(),
         ];
     }
 }
