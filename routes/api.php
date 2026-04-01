@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ClientTripController;
 use App\Http\Controllers\Api\DriverController;
+use App\Http\Controllers\Api\DriverTripController;
 use App\Http\Controllers\Api\FavoriteLocationController;
 use App\Http\Controllers\Api\TripTypeController;
 use App\Http\Controllers\Api\UserCouponController;
@@ -54,8 +55,9 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
     Route::post('/trips/{trip}/arrived', [\App\Http\Controllers\Api\DriverTripController::class, 'arrived']);
     Route::post('/trips/{trip}/start', [\App\Http\Controllers\Api\DriverTripController::class, 'start']);
     Route::post('/trips/{trip}/complete', [\App\Http\Controllers\Api\DriverTripController::class, 'complete']);
-    Route::post('/trips/{trip}/cancel', [\App\Http\Controllers\Api\DriverTripController::class, 'cancel']);
-    Route::post('/driver/trips/{trip}/negotiate', [\App\Http\Controllers\Api\DriverTripController::class, 'negotiate']);
+    Route::post('/trips/{trip}/cancel', [DriverTripController::class, 'cancel']);
+    Route::post('/driver/trips/{trip}/negotiate', [DriverTripController::class, 'negotiate']);
+    Route::post('/driver/trips/{trip}/rate', [DriverTripController::class, 'rateClient']);
 });
 
 // Client-specific grouped endpoints
@@ -75,6 +77,7 @@ Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(functio
     Route::post('/trips/{trip}/negotiate/accept', [ClientTripController::class, 'acceptNegotiation']);
     Route::post('/trips/{trip}/negotiate/reject', [ClientTripController::class, 'rejectNegotiation']);
     Route::post('/trips/{trip}/negotiate/counter', [ClientTripController::class, 'counterNegotiation']);
+    Route::post('/trips/{trip}/rate', [ClientTripController::class, 'rateDriver']);
 });
 
 // Admin-only routes with permission checks

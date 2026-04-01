@@ -9,6 +9,7 @@ use App\Models\TripType;
 use App\Models\Coupon;
 use App\Models\Offer;
 use App\Events\NewTripRequest;
+use App\Models\Rating;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
@@ -267,76 +268,114 @@ class ClientTripController extends Controller
         ]);
     }
     public function acceptNegotiation(Request $request, Trip $trip)
-{
-    $client = $request->user();
+    {
+        $client = $request->user();
 
-    if ($trip->client_id !== $client->id) {
-        return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
+        if ($trip->client_id !== $client->id) {
+            return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
+        }
+
+        if ($trip->negotiation_status !== 'pending') {
+            return response()->json(['status' => false, 'message' => 'No pending offer'], 400);
+        }
+
+        // قبول السعر الجديد
+        $trip->update([
+            'negotiated_price_before' => $trip->final_price,
+            'negotiated_price_after' => $trip->negotiation_price,
+            'final_price' => $trip->negotiation_price,
+            'negotiation_status' => 'accepted',
+        ]);
+
+        broadcast(new \App\Events\NegotiationAccepted($trip))->toOthers();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Offer accepted',
+            'final_price' => $trip->final_price,
+        ]);
     }
+    public function rejectNegotiation(Request $request, Trip $trip)
+    {
+        $client = $request->user();
 
-    if ($trip->negotiation_status !== 'pending') {
-        return response()->json(['status' => false, 'message' => 'No pending offer'], 400);
+        if ($trip->client_id !== $client->id) {
+            return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
+        }
+
+        $trip->update([
+            'negotiation_status' => 'rejected',
+        ]);
+
+        broadcast(new \App\Events\NegotiationRejected($trip))->toOthers();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Offer rejected',
+        ]);
     }
+    public function counterNegotiation(Request $request, Trip $trip)
+    {
+        $client = $request->user();
 
-    // قبول السعر الجديد
-    $trip->update([
-        'negotiated_price_before' => $trip->final_price,
-        'negotiated_price_after' => $trip->negotiation_price,
-        'final_price' => $trip->negotiation_price,
-        'negotiation_status' => 'accepted',
-    ]);
+        $data = $request->validate([
+            'counter_price' => 'required|numeric|min:1',
+        ]);
 
-    broadcast(new \App\Events\NegotiationAccepted($trip))->toOthers();
+        if ($trip->client_id !== $client->id) {
+            return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
+        }
 
-    return response()->json([
-        'status' => true,
-        'message' => 'Offer accepted',
-        'final_price' => $trip->final_price,
-    ]);
-}
-public function rejectNegotiation(Request $request, Trip $trip)
-{
-    $client = $request->user();
+        $trip->update([
+            'negotiation_status' => 'counter',
+            'negotiation_price' => $data['counter_price'],
+        ]);
 
-    if ($trip->client_id !== $client->id) {
-        return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
+        broadcast(new \App\Events\NegotiationCounter($trip))->toOthers();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Counter offer sent',
+            'counter_price' => $data['counter_price'],
+        ]);
     }
+    public function rateDriver(Request $request, Trip $trip)
+    {
+        $client = $request->user();
 
-    $trip->update([
-        'negotiation_status' => 'rejected',
-    ]);
+        $data = $request->validate([
+            'rating' => 'required|integer|min:1|max:5',
+            'comment' => 'nullable|string',
+        ]);
 
-    broadcast(new \App\Events\NegotiationRejected($trip))->toOthers();
+        // 1) تأكيد إن العميل صاحب الرحلة
+        if ($trip->client_id !== $client->id) {
+            return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
+        }
 
-    return response()->json([
-        'status' => true,
-        'message' => 'Offer rejected',
-    ]);
-}
-public function counterNegotiation(Request $request, Trip $trip)
-{
-    $client = $request->user();
+        // 2) الرحلة لازم تكون مدفوعة
+        if ($trip->status !== 'paid') {
+            return response()->json(['status' => false, 'message' => 'Trip not paid yet'], 400);
+        }
 
-    $data = $request->validate([
-        'counter_price' => 'required|numeric|min:1',
-    ]);
+        // 3) السائق لازم يكون موجود
+        if (!$trip->driver_id) {
+            return response()->json(['status' => false, 'message' => 'No driver assigned'], 400);
+        }
 
-    if ($trip->client_id !== $client->id) {
-        return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
+        // 4) حفظ التقييم
+        Rating::create([
+            'trip_id' => $trip->id,
+            'rated_user_id' => $trip->driver_id,
+            'rated_by_user_id' => $client->id,
+            'rated_by' => 'client',
+            'rating' => $data['rating'],
+            'comment' => $data['comment'] ?? null,
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Driver rated successfully',
+        ]);
     }
-
-    $trip->update([
-        'negotiation_status' => 'counter',
-        'negotiation_price' => $data['counter_price'],
-    ]);
-
-    broadcast(new \App\Events\NegotiationCounter($trip))->toOthers();
-
-    return response()->json([
-        'status' => true,
-        'message' => 'Counter offer sent',
-        'counter_price' => $data['counter_price'],
-    ]);
-}
-
 }

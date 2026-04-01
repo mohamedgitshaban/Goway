@@ -8,6 +8,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\Events\TripAccepted;
 use App\Events\TripLocked;
+use App\Models\Rating;
 
 class DriverTripController extends Controller
 {
@@ -228,42 +229,75 @@ class DriverTripController extends Controller
         ]);
     }
     public function negotiate(Request $request, Trip $trip)
-{
-    $driver = $request->user();
+    {
+        $driver = $request->user();
 
-    $data = $request->validate([
-        'proposed_price' => 'required|numeric|min:1',
-    ]);
+        $data = $request->validate([
+            'proposed_price' => 'required|numeric|min:1',
+        ]);
 
-    // 1) تأكيد إن السائق هو صاحب الرحلة
-    if ($trip->driver_id !== $driver->id) {
-        return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
+        // 1) تأكيد إن السائق هو صاحب الرحلة
+        if ($trip->driver_id !== $driver->id) {
+            return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
+        }
+
+        // 2) التفاوض مسموح؟
+        if (! $trip->negotiation_enabled) {
+            return response()->json(['status' => false, 'message' => 'Negotiation not allowed'], 400);
+        }
+
+        // 3) الرحلة في حالة تسمح بالتفاوض؟
+        if (! in_array($trip->status, ['searching_driver', 'driver_assigned', 'driver_arrived'])) {
+            return response()->json(['status' => false, 'message' => 'Cannot negotiate at this stage'], 400);
+        }
+
+        // 4) حفظ العرض
+        $trip->update([
+            'negotiation_price' => $data['proposed_price'],
+            'negotiation_status' => 'pending',
+        ]);
+
+        // 5) إرسال Event للعميل
+        broadcast(new \App\Events\NegotiationOffer($trip))->toOthers();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Offer sent to client',
+            'proposed_price' => $data['proposed_price'],
+        ]);
     }
+    public function rateClient(Request $request, Trip $trip)
+    {
+        $driver = $request->user();
 
-    // 2) التفاوض مسموح؟
-    if (! $trip->negotiation_enabled) {
-        return response()->json(['status' => false, 'message' => 'Negotiation not allowed'], 400);
+        $data = $request->validate([
+            'rating' => 'required|integer|min:1|max:5',
+            'comment' => 'nullable|string',
+        ]);
+
+        // 1) تأكيد إن السائق صاحب الرحلة
+        if ($trip->driver_id !== $driver->id) {
+            return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
+        }
+
+        // 2) الرحلة لازم تكون مدفوعة
+        if ($trip->status !== 'paid') {
+            return response()->json(['status' => false, 'message' => 'Trip not paid yet'], 400);
+        }
+
+        // 3) حفظ التقييم
+        Rating::create([
+            'trip_id' => $trip->id,
+            'rated_user_id' => $trip->client_id,
+            'rated_by_user_id' => $driver->id,
+            'rated_by' => 'driver',
+            'rating' => $data['rating'],
+            'comment' => $data['comment'] ?? null,
+        ]);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Client rated successfully',
+        ]);
     }
-
-    // 3) الرحلة في حالة تسمح بالتفاوض؟
-    if (! in_array($trip->status, ['searching_driver', 'driver_assigned', 'driver_arrived'])) {
-        return response()->json(['status' => false, 'message' => 'Cannot negotiate at this stage'], 400);
-    }
-
-    // 4) حفظ العرض
-    $trip->update([
-        'negotiation_price' => $data['proposed_price'],
-        'negotiation_status' => 'pending',
-    ]);
-
-    // 5) إرسال Event للعميل
-    broadcast(new \App\Events\NegotiationOffer($trip))->toOthers();
-
-    return response()->json([
-        'status' => true,
-        'message' => 'Offer sent to client',
-        'proposed_price' => $data['proposed_price'],
-    ]);
-}
-
 }
