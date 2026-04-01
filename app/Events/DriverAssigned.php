@@ -29,3 +29,4 @@ class DriverAssigned implements ShouldBroadcast
         ];
     }
 }
+
