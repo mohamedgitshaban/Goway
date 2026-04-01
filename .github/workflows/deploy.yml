@@ -23,6 +23,6 @@ jobs:
     - name: Deploy to Server
       run: |
         ssh -o StrictHostKeyChecking=no -p ${{ secrets.SSH_PORT }} ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-          cd /home/USERNAME/public_html/YOUR_PROJECT_FOLDER &&
+          cd /home/u868366755/domains/gowayapps.com/public_html/api &&
           bash deploy.sh
         "
