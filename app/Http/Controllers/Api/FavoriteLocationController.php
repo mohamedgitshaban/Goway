@@ -12,7 +12,7 @@ class FavoriteLocationController extends Controller
     {
         $locations = auth()->user()
             ->favoriteLocations()
-            ->select('id', 'title', 'lat', 'long')
+            ->select('id', 'title', 'lat', 'long', 'address')
             ->get();
 
         return response()->json([
@@ -25,6 +25,7 @@ class FavoriteLocationController extends Controller
     {
         $data = $request->validate([
             'title' => 'required|string|max:255',
+            'address' => 'sometimes|string|max:255',
             'lat'   => 'required|numeric',
             'long'  => 'required|numeric',
         ]);
@@ -71,6 +72,7 @@ class FavoriteLocationController extends Controller
 
         $data = $request->validate([
             'title' => 'sometimes|string|max:255',
+            'address' => 'sometimes|string|max:255',
             'lat'   => 'sometimes|numeric',
             'long'  => 'sometimes|numeric',
         ]);
@@ -79,7 +81,7 @@ class FavoriteLocationController extends Controller
 
         return response()->json([
             'message' => 'Updated successfully',
-            'data' => $location->only(['id', 'title', 'lat', 'long'])
+            'data' => $location->only(['id', 'title' , 'lat', 'long', 'address'])
         ]);
     }
 

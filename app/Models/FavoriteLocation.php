@@ -12,6 +12,7 @@ class FavoriteLocation extends Model
         'title',
         'lat',
         'long',
+        'address',
         'user_id',
     ];
 
