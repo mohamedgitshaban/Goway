@@ -25,7 +25,7 @@ class ClientNearbyDriversController extends Controller
 
         // هات بيانات السائقين من DB
         $drivers = User::whereIn('id', $driverIds)
-            ->where('type', 'driver')
+            ->where('usertype', 'driver')
             ->where('online_status', 'online')
             ->get()
             ->map(function ($driver) {
