@@ -26,7 +26,7 @@ class ClientNearbyDriversController extends Controller
         // هات بيانات السائقين من DB
         $drivers = User::whereIn('id', $driverIds)
             ->where('usertype', 'driver')
-            ->where('online_status', 'online')
+            ->where('is_online', 1)
             ->get()
             ->map(function ($driver) {
                 $loc = Redis::hgetall("driver:{$driver->id}:location");
