@@ -24,6 +24,11 @@ class GeoHash
         return self::instance()->encode($lat, $lng, $precision);
     }
 
+    public static function neighbors(string $hash): array
+    {
+        return self::instance()->getNeighbors($hash);
+    }
+
     public static function distanceKm(float $lat1, float $lng1, float $lat2, float $lng2): float
     {
         $coord1 = new Coordinate($lat1, $lng1);
