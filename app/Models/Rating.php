@@ -17,7 +17,6 @@ class Rating extends Model
         'comment',
     ];
 
-
     public function trip()
     {
         return $this->belongsTo(Trip::class);
