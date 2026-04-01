@@ -1,0 +1,11 @@
+{
+    "name": "Trip",
+    "alias": "trip",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Trip\\App\\Providers\\TripServiceProvider"
+    ],
+    "files": []
+}

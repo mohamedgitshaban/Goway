@@ -1,0 +1,11 @@
+{
+    "name": "Vehicle",
+    "alias": "vehicle",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Vehicle\\App\\Providers\\VehicleServiceProvider"
+    ],
+    "files": []
+}

@@ -1,0 +1,11 @@
+{
+    "name": "Negotiation",
+    "alias": "negotiation",
+    "description": "",
+    "keywords": [],
+    "priority": 0,
+    "providers": [
+        "Modules\\Negotiation\\App\\Providers\\NegotiationServiceProvider"
+    ],
+    "files": []
+}

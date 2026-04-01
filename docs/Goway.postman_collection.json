@@ -1,0 +1,268 @@
+{
+  "info": {
+    "_postman_id": "6a8b9c2a-0000-4e0a-9c3f-123456789abc",
+    "name": "Goway API",
+    "description": "Collection for Goway backend APIs (auth, wallets, trips, vehicles, admin).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Admin Login (email + password)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "usertype", "value": "super_admin" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"123456789\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/admin/login", "host": ["{{base_url}}"], "path": ["admin","login"] }
+          },
+          "response": []
+        },
+        {
+          "name": "Driver Login (phone + otp)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "usertype", "value": "driver" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+966500000000\",\n  \"otp\": \"123456\"\n}" },
+            "url": { "raw": "{{base_url}}/driver/login", "host": ["{{base_url}}"], "path": ["driver","login"] }
+          }
+        },
+        {
+          "name": "Driver Register (multipart - documents)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "usertype", "value": "driver" } ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "name", "value": "Ahmed Driver", "type": "text" },
+                { "key": "phone", "value": "+966500000000", "type": "text" },
+                { "key": "password", "value": "password123", "type": "text" },
+                { "key": "nid_front", "type": "file", "src": ["/path/to/nid_front.jpg"] },
+                { "key": "nid_back", "type": "file", "src": ["/path/to/nid_back.jpg"] },
+                { "key": "license_image", "type": "file", "src": ["/path/to/license.jpg"] },
+                { "key": "personal_image", "type": "file", "src": ["/path/to/personal.jpg"] },
+                { "key": "criminal_record", "type": "file", "src": ["/path/to/criminal.jpg"] }
+              ]
+            },
+            "url": { "raw": "{{base_url}}/driver/register", "host": ["{{base_url}}"], "path": ["driver","register"] }
+          }
+        },
+        {
+          "name": "Forgot Password (send OTP)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "usertype", "value": "client" }],
+            "body": { "mode": "raw", "raw": "{\n  \"phone\": \"+966500000001\"\n}" },
+            "url": { "raw": "{{base_url}}/client/forgot-password", "host": ["{{base_url}}"], "path": ["client","forgot-password"] }
+          }
+        },
+        {
+          "name": "Reset Password (validate OTP)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }, { "key": "usertype", "value": "super_admin" }],
+            "body": { "mode": "raw", "raw": "{\n  \"identifier\": \"admin@example.com\",\n  \"otp\": \"123456\",\n  \"password\": \"newpassword123\"\n}" },
+            "url": { "raw": "{{base_url}}/admin/reset-password", "host": ["{{base_url}}"], "path": ["admin","reset-password"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Profile",
+      "item": [
+        {
+          "name": "Get Profile (client)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" },
+              { "key": "usertype", "value": "client" }
+            ],
+            "url": { "raw": "{{base_url}}/client/profile", "host": ["{{base_url}}"], "path": ["client","profile"] }
+          }
+        },
+        {
+          "name": "Get Profile (driver)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "driver" } ],
+            "url": { "raw": "{{base_url}}/driver/profile", "host": ["{{base_url}}"], "path": ["driver","profile"] }
+          }
+        },
+        {
+          "name": "Get Profile (admin)",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "super_admin" } ],
+            "url": { "raw": "{{base_url}}/admin/profile", "host": ["{{base_url}}"], "path": ["admin","profile"] }
+          }
+        },
+        {
+          "name": "Update Profile (driver)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{auth_token}}" },
+              { "key": "usertype", "value": "driver" }
+            ],
+            "body": { "mode": "raw", "raw": "{\n  \"name\": \"Ahmed Driver\",\n  \"phone\": \"+966500000000\"\n}" },
+            "url": { "raw": "{{base_url}}/driver/profile", "host": ["{{base_url}}"], "path": ["driver","profile"] }
+          }
+        },
+        {
+          "name": "Logout (driver)",
+          "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "driver" } ], "url": { "raw": "{{base_url}}/driver/logout", "host": ["{{base_url}}"], "path": ["driver","logout"] } }
+        },
+        {
+          "name": "Logout (client)",
+          "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "client" } ], "url": { "raw": "{{base_url}}/client/logout", "host": ["{{base_url}}"], "path": ["client","logout"] } }
+        },
+        {
+          "name": "Logout (admin)",
+          "request": { "method": "POST", "header": [ { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "super_admin" } ], "url": { "raw": "{{base_url}}/admin/logout", "host": ["{{base_url}}"], "path": ["admin","logout"] } }
+        }
+      ]
+    },
+    {
+      "name": "Wallets",
+      "item": [
+        {
+          "name": "Get My Wallet (driver)",
+          "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "driver" } ], "url": { "raw": "{{base_url}}/driver/wallets", "host": ["{{base_url}}"], "path": ["driver","wallets"] } }
+        },
+        {
+          "name": "Get My Wallet (client)",
+          "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "client" } ], "url": { "raw": "{{base_url}}/client/wallets", "host": ["{{base_url}}"], "path": ["client","wallets"] } }
+        },
+        {
+          "name": "Get Wallet By ID",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "admin" } ],
+            "url": { "raw": "{{base_url}}/wallets/1", "host": ["{{base_url}}"], "path": ["wallets","1"] }
+          }
+        },
+        {
+          "name": "Admin: Get User Wallets",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "admin" } ],
+            "url": { "raw": "{{base_url}}/admin/users/2/wallets", "host": ["{{base_url}}"], "path": ["admin","users","2","wallets"] }
+          }
+        },
+        {
+          "name": "Wallet Transaction (credit)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "driver" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"wallet_id\": 1,\n  \"amount\": 50.00,\n  \"type\": \"credit\",\n  \"description\": \"Top-up\"\n}" },
+            "url": { "raw": "{{base_url}}/driver/wallets/transaction", "host": ["{{base_url}}"], "path": ["driver","wallets","transaction"] }
+          }
+        },
+        {
+          "name": "Wallet Transaction (debit)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "client" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"wallet_id\": 2,\n  \"amount\": 12.50,\n  \"type\": \"debit\",\n  \"description\": \"Trip fare\"\n}" },
+            "url": { "raw": "{{base_url}}/client/wallets/transaction", "host": ["{{base_url}}"], "path": ["client","wallets","transaction"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Trip Types",
+      "item": [
+        {
+          "name": "List Trip Types (client)",
+          "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "client" } ], "url": { "raw": "{{base_url}}/client/trip-types", "host": ["{{base_url}}"], "path": ["client","trip-types"] } }
+        },
+        {
+          "name": "Admin: Create Trip Type",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "admin" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"name_en\": \"Economy\",\n  \"name_ar\": \"اقتصادي\",\n  \"price_per_km\": 0.50,\n  \"profit_margin\": 0.10\n}" },
+            "url": { "raw": "{{base_url}}/admin/trip-types", "host": ["{{base_url}}"], "path": ["admin","trip-types"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        {
+          "name": "Submit Report (driver)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "driver" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"report_text\": \"Driver saw unsafe behaviour during trip\"\n}" },
+            "url": { "raw": "{{base_url}}/driver/reports", "host": ["{{base_url}}"], "path": ["driver","reports"] }
+          }
+        },
+        {
+          "name": "Submit Report (client)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "client" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"report_text\": \"Client reports an issue\"\n}" },
+            "url": { "raw": "{{base_url}}/client/reports", "host": ["{{base_url}}"], "path": ["client","reports"] }
+          }
+        },
+        {
+          "name": "Admin: List Reports",
+          "request": {
+            "method": "GET",
+            "header": [ { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "admin" } ],
+            "url": { "raw": "{{base_url}}/admin/reports", "host": ["{{base_url}}"], "path": ["admin","reports"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Vehicles",
+      "item": [
+        {
+          "name": "List My Vehicles (driver)",
+          "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "driver" } ], "url": { "raw": "{{base_url}}/driver/vehicles", "host": ["{{base_url}}"], "path": ["driver","vehicles"] } }
+        },
+        {
+          "name": "Create Vehicle (driver)",
+          "request": {
+            "method": "POST",
+            "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "driver" } ],
+            "body": { "mode": "raw", "raw": "{\n  \"plate_number\": \"ABC1234\",\n  \"make\": \"Toyota\",\n  \"model\": \"Corolla\",\n  \"year\": 2020,\n  \"color\": \"White\"\n}" },
+            "url": { "raw": "{{base_url}}/driver/vehicles", "host": ["{{base_url}}"], "path": ["driver","vehicles"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Admin: Vehicle Classes & Categories",
+      "item": [
+        {
+          "name": "List Classes",
+          "request": { "method": "GET", "header": [ { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "admin" } ], "url": { "raw": "{{base_url}}/admin/vehicle-classes", "host": ["{{base_url}}"], "path": ["admin","vehicle-classes"] } }
+        },
+        {
+          "name": "Create Class",
+          "request": { "method": "POST", "header": [ { "key": "Content-Type", "value": "application/json" }, { "key": "Authorization", "value": "Bearer {{auth_token}}" }, { "key": "usertype", "value": "admin" } ], "body": { "mode": "raw", "raw": "{\n  \"name\": \"Class A\",\n  \"name_en\": \"Class A\",\n  \"name_ar\": \"الفئة أ\",\n  \"slug\": \"class-a\"\n}" }, "url": { "raw": "{{base_url}}/admin/vehicle-classes", "host": ["{{base_url}}"], "path": ["admin","vehicle-classes"] } }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000/api" },
+    { "key": "auth_token", "value": "" },
+    { "key": "usertype", "value": "driver" }
+  ]
+}

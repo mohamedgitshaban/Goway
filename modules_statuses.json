@@ -1,0 +1,16 @@
+{
+    "Auth": true,
+    "User": true,
+    "Driver": true,
+    "Vehicle": true,
+    "Trip": true,
+    "Pricing": true,
+    "Negotiation": true,
+    "Payment": true,
+    "Wallet": true,
+    "Review": true,
+    "Notification": true,
+    "Admin": true,
+    "Report": true,
+    "Support": true
+}

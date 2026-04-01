@@ -1,0 +1,31 @@
+{
+    "name": "nwidart/negotiation",
+    "description": "",
+    "authors": [
+        {
+            "name": "Nicolas Widart",
+            "email": "n.widart@gmail.com"
+        }
+    ],
+    "extra": {
+        "laravel": {
+            "providers": [],
+            "aliases": {
+
+            }
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "Modules\\Negotiation\\": "",
+            "Modules\\Negotiation\\App\\": "app/",
+            "Modules\\Negotiation\\Database\\Factories\\": "database/factories/",
+            "Modules\\Negotiation\\Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Modules\\Negotiation\\Tests\\": "tests/"
+        }
+    }
+}
