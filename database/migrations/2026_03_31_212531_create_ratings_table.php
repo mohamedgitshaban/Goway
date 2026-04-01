@@ -20,6 +20,7 @@ return new class extends Migration
             $table->tinyInteger('rating'); // 1–5
             $table->text('comment')->nullable();
             $table->timestamps();
+            
         });
     }
 
