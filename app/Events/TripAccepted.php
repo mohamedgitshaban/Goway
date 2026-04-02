@@ -5,7 +5,6 @@ namespace App\Events;
 use App\Models\Trip;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
-use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 class TripAccepted implements ShouldBroadcastNow
 {
