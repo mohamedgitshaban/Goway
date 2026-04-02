@@ -9,6 +9,7 @@ use App\Models\TripType;
 use App\Models\Coupon;
 use App\Models\Offer;
 use App\Events\NewTripRequest;
+use App\Models\Driver;
 use App\Models\Rating;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -140,7 +141,10 @@ class ClientTripController extends Controller
 
 
             foreach ($nearbyDrivers as $driverId) {
-                broadcast(new NewTripRequest($trip, $driverId));
+                $driver = Driver::find($driverId);
+                if ($driver && $driver->is_online) {
+                    broadcast(new NewTripRequest($trip, $driverId));
+                }
             }
 
             return response()->json([
