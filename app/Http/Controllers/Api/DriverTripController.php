@@ -32,7 +32,7 @@ class DriverTripController extends Controller
             }
 
             // 3) تحقق إن السائق Online
-            if ($driver->online_status !== 'online') {
+            if ($driver->is_online !== 1) {
                 return response()->json([
                     'status' => false,
                     'message' => 'Driver is offline'
