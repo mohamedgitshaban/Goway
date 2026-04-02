@@ -28,15 +28,45 @@ class DriverLocationController extends Controller
         $lat = (float) $data['lat'];
         $lng = (float) $data['lng'];
 
-        // geohash الجديد
-        $newGeohash = GeoHash::encode($lat, $lng, 7);
-
-        // geohash القديم من Redis
+        /*
+        |--------------------------------------------------------------------------
+        | 0) Check if location unchanged → no event
+        |--------------------------------------------------------------------------
+        */
+        $oldLat = Redis::hget("driver:{$driver->id}:location", 'lat');
+        $oldLng = Redis::hget("driver:{$driver->id}:location", 'lng');
         $oldGeohash = Redis::hget("driver:{$driver->id}:location", 'geohash');
+
+        if ($oldLat && $oldLng) {
+            if ((float)$oldLat === $lat && (float)$oldLng === $lng) {
+
+                // Update timestamp only
+                Redis::hmset("driver:{$driver->id}:location", [
+                    'lat'        => $lat,
+                    'lng'        => $lng,
+                    'geohash'    => $oldGeohash,
+                    'updated_at' => now()->toIso8601String(),
+                ]);
+
+                Redis::expire("driver:{$driver->id}:location", 20);
+
+                return response()->json([
+                    'status'  => true,
+                    'message' => 'Location unchanged — no event broadcasted'
+                ]);
+            }
+        }
 
         /*
         |--------------------------------------------------------------------------
-        | 1) Driver moved to a NEW geohash → left + entered
+        | 1) Compute new geohash
+        |--------------------------------------------------------------------------
+        */
+        $newGeohash = GeoHash::encode($lat, $lng, 7);
+
+        /*
+        |--------------------------------------------------------------------------
+        | 2) Driver moved to a NEW geohash → left + entered
         |--------------------------------------------------------------------------
         */
         if ($oldGeohash && $oldGeohash !== $newGeohash) {
@@ -71,7 +101,7 @@ class DriverLocationController extends Controller
 
             /*
             |--------------------------------------------------------------------------
-            | 2) Driver moved inside SAME geohash → moved
+            | 3) Driver moved inside SAME geohash → moved
             |--------------------------------------------------------------------------
             */
             Redis::sadd("geohash:drivers:{$newGeohash}", $driver->id);
@@ -89,7 +119,7 @@ class DriverLocationController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | 3) Save driver location + TTL
+        | 4) Save driver location + TTL
         |--------------------------------------------------------------------------
         */
         Redis::hmset("driver:{$driver->id}:location", [
@@ -99,7 +129,7 @@ class DriverLocationController extends Controller
             'updated_at' => now()->toIso8601String(),
         ]);
 
-        Redis::expire("driver:{$driver->id}:location", 20); // auto-remove after 20 sec
+        Redis::expire("driver:{$driver->id}:location", 20);
 
         return response()->json(['status' => true]);
     }
