@@ -17,7 +17,7 @@ class DriverTripController extends Controller
         $driver = $request->user();
 
         // 1) تحقق إن السائق Driver
-        if ($driver->type !== 'driver') {
+        if ($driver->usertype !== 'driver') {
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -77,7 +77,7 @@ class DriverTripController extends Controller
         $driver = $request->user();
 
         // 1) تأكيد إن المستخدم Driver
-        if ($driver->type !== 'driver') {
+        if ($driver->usertype !== 'driver') {
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -115,7 +115,7 @@ class DriverTripController extends Controller
         $driver = $request->user();
 
         // 1) تأكيد إن المستخدم Driver
-        if ($driver->type !== 'driver') {
+        if ($driver->usertype !== 'driver') {
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
         }
 
@@ -153,7 +153,7 @@ class DriverTripController extends Controller
         $driver = $request->user();
 
         // 1) تأكيد إن المستخدم Driver
-        if ($driver->type !== 'driver') {
+        if ($driver->usertype !== 'driver') {
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
         }
 
