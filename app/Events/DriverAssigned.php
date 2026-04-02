@@ -2,7 +2,7 @@
 namespace App\Events;
 
 use App\Models\Trip;
-use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Queue\SerializesModels;
 class DriverAssigned implements ShouldBroadcast
@@ -13,7 +13,7 @@ class DriverAssigned implements ShouldBroadcast
 
     public function broadcastOn()
     {
-        return new PrivateChannel("trip.{$this->trip->id}");
+        return new Channel("trip.{$this->trip->id}");
     }
 
     public function broadcastAs()

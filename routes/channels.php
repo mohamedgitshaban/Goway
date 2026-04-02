@@ -27,15 +27,6 @@ Broadcast::channel('driver.requests.{driverId}', function (User $user, $driverId
 
 /*
 |--------------------------------------------------------------------------
-| Driver Status — العميل + السائق
-|--------------------------------------------------------------------------
-*/
-Broadcast::channel('driver.status.{driverId}', function (User $user, $driverId) {
-    return $user->id == $driverId || $user->type === 'client';
-});
-
-/*
-|--------------------------------------------------------------------------
 | Nearby Drivers — قناة عامة
 |--------------------------------------------------------------------------
 */

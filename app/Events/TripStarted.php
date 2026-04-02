@@ -3,7 +3,7 @@
 namespace App\Events;
 
 use App\Models\Trip;
-use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Queue\SerializesModels;
 
@@ -15,7 +15,7 @@ class TripStarted implements ShouldBroadcastNow
 
     public function broadcastOn()
     {
-        return new PrivateChannel("trip.{$this->trip->id}");
+        return new Channel("trip.{$this->trip->id}");
     }
 
     public function broadcastAs()

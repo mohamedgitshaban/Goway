@@ -6,7 +6,7 @@ use App\Models\Trip;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PresenceChannel;
-use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -19,7 +19,7 @@ class TripAccepted implements ShouldBroadcastNow
 
     public function broadcastOn()
     {
-        return new PrivateChannel("trip.{$this->trip->id}");
+        return new Channel("trip.{$this->trip->id}");
     }
 
     public function broadcastAs()

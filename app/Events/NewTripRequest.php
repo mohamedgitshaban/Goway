@@ -3,7 +3,7 @@
 namespace App\Events;
 
 use App\Models\Trip;
-use Illuminate\Broadcasting\PrivateChannel;
+use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
 use Illuminate\Queue\SerializesModels;
 
@@ -18,7 +18,7 @@ class NewTripRequest implements ShouldBroadcastNow
 
     public function broadcastOn()
     {
-        return new PrivateChannel("driver.requests.{$this->driverId}");
+        return new Channel("driver.requests.{$this->driverId}");
     }
 
     public function broadcastAs()
