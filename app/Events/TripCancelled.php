@@ -2,6 +2,7 @@
 
 namespace App\Events;
 
+use App\Http\Resources\TripResource;
 use App\Models\Trip;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
@@ -26,7 +27,7 @@ class TripCancelled implements ShouldBroadcastNow
     public function broadcastWith()
     {
         return [
-            'trip' => $this->trip,
+            'trip' => new TripResource($this->trip),
             'cancelled_at' => now()->toISOString(),
         ];
     }

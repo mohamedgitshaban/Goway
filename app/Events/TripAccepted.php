@@ -2,7 +2,7 @@
 
 namespace App\Events;
 
-use App\Http\Resources\TripTypeResource;
+use App\Http\Resources\TripResource;
 use App\Models\Trip;
 use Illuminate\Broadcasting\Channel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
@@ -26,7 +26,7 @@ class TripAccepted implements ShouldBroadcastNow
     public function broadcastWith()
     {
         return [
-            'trip' => new TripTypeResource($this->trip),
+            'trip' => new TripResource($this->trip),
             'accepted_at' => now()->toISOString(),
         ];
     }
