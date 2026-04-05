@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Exports\UsersExport;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Http\Exceptions\HttpResponseException;
+use Illuminate\Support\Facades\Storage;
 use Maatwebsite\Excel\Facades\Excel;
 
 class BaseController extends Controller
@@ -62,19 +65,19 @@ class BaseController extends Controller
         $data = $request->validate([
             'name_en' => 'required|string',
             'name_ar' => 'required|string',
-            'image' => 'nullable|image',
+            'image' => 'sometimes|nullable|image',
             'price_per_km' => 'required|numeric',
             'max_distance' => 'required|numeric',
             'profit_margin' => 'required|numeric',
             'need_licence' => 'required|boolean',
         ]);
-
         if ($request->hasFile('image')) {
-            $file = $request->file('image');
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $file->storeAs('trip_types', $filename, 'public');
+            $data['image'] = $this->storeUploadedImage($request->file('image'), 'trip_types');
+        }
 
-            $data['image'] = asset('storage/trip_types/' . $filename);
+        // Normalize boolean-like input for create path as well
+        if (array_key_exists('need_licence', $data)) {
+            $data['need_licence'] = $this->normalizeBoolean($request->input('need_licence'));
         }
 
 
@@ -96,30 +99,21 @@ class BaseController extends Controller
         $data = $request->validate([
             'name_en' => 'sometimes|required|string',
             'name_ar' => 'sometimes|required|string',
-            'image' => 'nullable|image',
+            // allow image to be included in partial updates (PATCH or POST + _method=PUT)
+            'image' => 'sometimes|nullable|image',
             'max_distance' => 'sometimes|required|numeric',
             'price_per_km' => 'sometimes|required|numeric',
             'profit_margin' => 'sometimes|required|numeric',
-            'need_licence' => 'sometimes|required|boolean',
+            // validate as boolean - accepts true/false, 1/0, "true"/"false"
+            'need_licence' => 'sometimes|in:true,false,1,0',
         ]);
 
         if ($request->hasFile('image')) {
-
-            // 1. Delete old image if exists
-            if ($trip_type->image) {
-                $oldPath = str_replace(asset('storage/') . '/', '', $trip_type->image);
-                \Storage::disk('public')->delete($oldPath);
-            }
-
-            // 2. Generate encrypted/timestamped filename
-            $file = $request->file('image');
-            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-
-            // 3. Store file
-            $file->storeAs('trip_types', $filename, 'public');
-
-            // 4. Save FULL URL in database
-            $data['image'] = asset('storage/trip_types/' . $filename);
+            $data['image'] = $this->storeUploadedImage($request->file('image'), 'trip_types', $trip_type->image);
+        }
+        // Ensure boolean-like inputs (e.g. the string "false") are converted to actual booleans
+        if (array_key_exists('need_licence', $data)) {
+            $data['need_licence'] = $this->normalizeBoolean($request->input('need_licence'));
         }
 
         $trip_type->update($data);
@@ -129,6 +123,69 @@ class BaseController extends Controller
             'trip_type'    => new $this->resource($trip_type),
         ]);
     }
+
+    /**
+     * Store uploaded image safely, delete old image if provided, and return stored asset URL.
+     * Throws HttpResponseException with 422 when PHP-level upload errors occur.
+     *
+     * @param UploadedFile|null $uploaded
+     * @param string $folder
+     * @param string|null $oldUrl
+     * @return string|null
+     */
+    private function storeUploadedImage($uploaded, string $folder, string $oldUrl = null)
+    {
+        if (! $uploaded instanceof UploadedFile) {
+            return null;
+        }
+
+        if (! $uploaded->isValid()) {
+            $errorCode = $uploaded->getError();
+            $errorMap = [
+                UPLOAD_ERR_INI_SIZE => 'The uploaded file exceeds the upload_max_filesize directive in php.ini.',
+                UPLOAD_ERR_FORM_SIZE => 'The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form.',
+                UPLOAD_ERR_PARTIAL => 'The uploaded file was only partially uploaded.',
+                UPLOAD_ERR_NO_FILE => 'No file was uploaded.',
+                UPLOAD_ERR_NO_TMP_DIR => 'Missing a temporary folder.',
+                UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk.',
+                UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the file upload.',
+            ];
+
+            $message = $errorMap[$errorCode] ?? 'Unknown upload error.';
+
+            throw new HttpResponseException(response()->json([
+                'status' => false,
+                'message' => 'Image failed to upload',
+                'errors' => [
+                    'image' => [$message . ' (code: ' . $errorCode . ')']
+                ]
+            ], 422));
+        }
+
+        // delete old file if exists
+        if ($oldUrl) {
+            $oldPath = str_replace(asset('storage/') . '/', '', $oldUrl);
+            Storage::disk('public')->delete($oldPath);
+        }
+
+        $filename = time() . '_' . uniqid() . '.' . $uploaded->getClientOriginalExtension();
+        $uploaded->storeAs($folder, $filename, 'public');
+
+        return asset('storage/' . $folder . '/' . $filename);
+    }
+
+    /**
+     * Normalize boolean-like inputs to real booleans.
+     */
+    private function normalizeBoolean($value): bool
+    {
+        $normalized = filter_var($value, FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        if (is_null($normalized)) {
+            return (bool) $value;
+        }
+        return $normalized;
+    }
+
     /**
      * PUT /trip_types/{id}/activate
      */
