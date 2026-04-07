@@ -185,6 +185,22 @@ class DriverTripController extends Controller
         // 6) إرسال Event للعميل
         broadcast(new \App\Events\TripCompleted($trip))->toOthers();
 
+        // 7) Reward: if this is the client's 5th completed trip (or every 5th), credit 100 to their wallet
+        try {
+            $clientId = $trip->client_id;
+            if ($clientId) {
+                $completedCount = Trip::where('client_id', $clientId)->where('status', 'completed')->count();
+                if ($completedCount === 5) {
+                    $client = $trip->client;
+                    if ($client && $client->wallet) {
+                        $client->wallet->increment('balance', 100);
+                    }
+                }
+            }
+        } catch (\Exception $e) {
+            \Log::error('Failed to credit wallet on trip completion: ' . $e->getMessage());
+        }
+
         return response()->json([
             'status' => true,
             'message' => 'Trip completed successfully',
