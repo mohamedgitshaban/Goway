@@ -69,7 +69,7 @@ class BaseController extends Controller
             'price_per_km' => 'required|numeric',
             'max_distance' => 'required|numeric',
             'profit_margin' => 'required|numeric',
-            'need_licence' => 'required|boolean',
+            'need_licence' => 'required|in:true,false,1,0',
         ]);
         if ($request->hasFile('image')) {
             $data['image'] = $this->storeUploadedImage($request->file('image'), 'trip_types');
