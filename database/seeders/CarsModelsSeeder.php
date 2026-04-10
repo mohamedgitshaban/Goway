@@ -79,14 +79,21 @@ class CarsModelsSeeder extends Seeder
                 $brandName = $parts[0] ?? $item['name'];
 
                 if (! isset($brandCache[$brandName])) {
-                    // find or create brand by name (name is unique). If creating, set trip_type_id.
+                    // Only set trip_type_id if the TripType exists to avoid FK violations
+                    $tripExists = \App\Models\TripType::find($tripTypeId);
+                    $createData = [];
+                    if ($tripExists) {
+                        $createData['trip_type_id'] = $tripTypeId;
+                    }
+
+                    // find or create brand by name; if TripType exists we set trip_type_id when creating
                     $brand = VehicleBrand::firstOrCreate(
                         ['name' => $brandName],
-                        ['trip_type_id' => $tripTypeId]
+                        $createData
                     );
 
-                    // If brand exists but has no trip_type_id, set it to current trip type (optional)
-                    if (is_null($brand->trip_type_id)) {
+                    // If brand exists but currently has no trip_type_id and trip exists, set it
+                    if ($tripExists && is_null($brand->trip_type_id)) {
                         $brand->trip_type_id = $tripTypeId;
                         $brand->save();
                     }

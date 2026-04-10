@@ -66,6 +66,7 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
     Route::post('/trips/{trip}/cancel', [DriverTripController::class, 'cancel']);
     Route::post('/driver/trips/{trip}/negotiate', [DriverTripController::class, 'negotiate']);
     Route::post('/driver/trips/{trip}/rate', [DriverTripController::class, 'rateClient']);
+    Route::get('/trips', [\App\Http\Controllers\Api\DriverTripController::class, 'index']);
     
 });
 
@@ -87,6 +88,7 @@ Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(functio
     Route::post('/trips/{trip}/negotiate/reject', [ClientTripController::class, 'rejectNegotiation']);
     Route::post('/trips/{trip}/negotiate/counter', [ClientTripController::class, 'counterNegotiation']);
     Route::post('/trips/{trip}/rate', [ClientTripController::class, 'rateDriver']);
+    Route::get('/trips', [\App\Http\Controllers\Api\ClientTripController::class, 'index']);
 });
 
 // Admin-only routes with permission checks
