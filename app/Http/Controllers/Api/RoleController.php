@@ -32,6 +32,13 @@ class RoleController extends Controller
         return RoleResource::collection($roles);
     }
 
+    // return all permissions grouped (no assigned flags) for role creation UI
+    public function allPermissions(Request $request)
+    {
+        // buildPermissionsPayload will return ['status' => true, 'permission_rules' => [...]]
+        $payload = $this->buildPermissionsPayload($request, false);
+        return response()->json($payload);
+    }
 
     public function selectAllRoles()
     {

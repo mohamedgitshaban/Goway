@@ -131,14 +131,11 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::put('/{id}/restore', [AdminController::class, 'restore'])->middleware('admin.permission:admins.restore');
     });
     
-    // Permissions management for admin users
-    Route::prefix('permissions')->group(function () {
-        Route::get('/', [\App\Http\Controllers\Api\AdminPermissionController::class, 'index']);
-    });
-
     // Roles management
     Route::prefix('roles')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\RoleController::class, 'index'])->middleware('admin.permission:roles.index');
+        // new endpoint to fetch all permissions for role creation/edit
+        Route::get('/permissions/all', [\App\Http\Controllers\Api\RoleController::class, 'allPermissions']);
         Route::get('/select', [\App\Http\Controllers\Api\RoleController::class, 'selectAllRoles']);
         Route::post('/', [\App\Http\Controllers\Api\RoleController::class, 'store'])->middleware('admin.permission:roles.store');
         Route::get('/{id}', [\App\Http\Controllers\Api\RoleController::class, 'show'])->middleware('admin.permission:roles.show');
@@ -146,10 +143,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::delete('/{id}', [\App\Http\Controllers\Api\RoleController::class, 'destroy'])->middleware('admin.permission:roles.destroy');
         Route::put('/{id}/restore', [\App\Http\Controllers\Api\RoleController::class, 'restore'])->middleware('admin.permission:roles.restore');
     });
-
     // Admin-specific permission assignment endpoints
     Route::get('/admins/{id}/permissions', [\App\Http\Controllers\Api\AdminPermissionController::class, 'adminPermissions']);
-    Route::put('/admins/{id}/permissions', [\App\Http\Controllers\Api\AdminPermissionController::class, 'syncAdminPermissions']);
     Route::prefix('trip_types')->group(function () {
         Route::get('/', [TripTypeController::class, 'index'])->middleware('admin.permission:trip_types.index');
         Route::get('/export', [TripTypeController::class, 'export'])->middleware('admin.permission:trip_types.export');
