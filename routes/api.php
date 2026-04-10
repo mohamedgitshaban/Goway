@@ -12,6 +12,7 @@ use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\VehicleModelController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\Storage;
 
 Route::prefix('driver/auth')->group(function () {
     Route::post('/login', [\App\Http\Controllers\Api\DriverAuthController::class, 'login']);
@@ -53,8 +54,6 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
      });
     Route::prefix('documents')->group(function () {
         Route::get('trip_types', [\App\Http\Controllers\Api\TripTypeController::class, 'index']);
-
-        Route::get('trip_types/{id}/models', [VehicleModelController::class, 'vehicleOptions']);
         Route::post('/upload', [\App\Http\Controllers\Api\DriverDocumentController::class, 'uploadDocuments']);
         Route::get('/', [\App\Http\Controllers\Api\DriverDocumentController::class, 'index']);
     });
@@ -188,3 +187,17 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
     Route::delete('/coupons/{coupon}', [\App\Http\Controllers\Api\CouponController::class, 'destroy'])->middleware('admin.permission:coupons.destroy');
     Route::get('/trips', [\App\Http\Controllers\Api\AdminTripController::class, 'index'])->middleware('admin.permission:trips.index');
 });
+
+// Fallback to serve storage files via API if public/storage symlink is not available.
+// Usage: GET /storage/{any/path/to/file}
+// NOTE: Preferred solution is to run `php artisan storage:link` so webserver serves /storage/* directly.
+Route::get('storage/{path}', function ($path) {
+	$fullPath = storage_path('app/public/' . $path);
+
+	if (! file_exists($fullPath)) {
+		return response()->json(['status' => false, 'message' => 'File not found'], 404);
+	}
+
+	$mime = mime_content_type($fullPath) ?: 'application/octet-stream';
+	return response()->file($fullPath, ['Content-Type' => $mime]);
+})->where('path', '.*');
