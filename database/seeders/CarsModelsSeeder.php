@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Trip;
 use App\Models\TripType;
 use App\Models\VehicleModel;
+use App\Models\VehicleBrand;
 use Illuminate\Database\Seeder;
 
 class CarsModelsSeeder extends Seeder
@@ -70,13 +71,37 @@ class CarsModelsSeeder extends Seeder
         ];
 
         foreach ($models as $tripTypeId => $items) {
+            // keep cache of created brands per trip type by brand name
+            $brandCache = [];
             foreach ($items as $item) {
-                VehicleModel::create([
-                    'trip_type_id' => $tripTypeId,
-                    'name'        => $item['name'],
-                    'min_year'    => $item['min_year'],
-                    'max_year'    => $item['max_year'],
-                ]);
+                // derive brand from model name (first word)
+                $parts = preg_split('/\s+/', trim($item['name']));
+                $brandName = $parts[0] ?? $item['name'];
+
+                if (! isset($brandCache[$brandName])) {
+                    // find or create brand by name (name is unique). If creating, set trip_type_id.
+                    $brand = VehicleBrand::firstOrCreate(
+                        ['name' => $brandName],
+                        ['trip_type_id' => $tripTypeId]
+                    );
+
+                    // If brand exists but has no trip_type_id, set it to current trip type (optional)
+                    if (is_null($brand->trip_type_id)) {
+                        $brand->trip_type_id = $tripTypeId;
+                        $brand->save();
+                    }
+
+                    $brandCache[$brandName] = $brand->id;
+                }
+
+                VehicleModel::updateOrCreate(
+                    ['name' => $item['name']],
+                    [
+                        'vehicle_brand_id' => $brandCache[$brandName],
+                        'min_year'    => $item['min_year'],
+                        'max_year'    => $item['max_year'],
+                    ]
+                );
             }
         }
     }

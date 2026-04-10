@@ -7,15 +7,16 @@ use Illuminate\Database\Eloquent\Model;
 class VehicleModel extends Model
 {
     protected $fillable = [
-        'trip_type_id',
+        'vehicle_brand_id',
         'name',
         'min_year',
         'max_year',
     ];
 
-    public function tripType()
+    // models belong to a brand (brand carries trip_type)
+    public function brand()
     {
-        return $this->belongsTo(TripType::class);
+        return $this->belongsTo(VehicleBrand::class, 'vehicle_brand_id');
     }
 }
 

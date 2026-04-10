@@ -46,8 +46,14 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::put('/goOffline', [\App\Http\Controllers\Api\DriverAuthController::class, 'goOffline']);
         Route::put('/toggleonlinestatus', [\App\Http\Controllers\Api\DriverAuthController::class, 'toggleonlinestatus']);
     });
+    Route::prefix("vehicle")->group(function() {
+        Route::get('{id}/brands', [VehicleModelController::class, 'brands']);
+        Route::get('{id}/models', [VehicleModelController::class, 'brandModels']);
+        
+     });
     Route::prefix('documents')->group(function () {
         Route::get('trip_types', [\App\Http\Controllers\Api\TripTypeController::class, 'index']);
+
         Route::get('trip_types/{id}/models', [VehicleModelController::class, 'vehicleOptions']);
         Route::post('/upload', [\App\Http\Controllers\Api\DriverDocumentController::class, 'uploadDocuments']);
         Route::get('/', [\App\Http\Controllers\Api\DriverDocumentController::class, 'index']);

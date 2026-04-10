@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\DriverDocumentResource;
 use App\Models\Driver;
 use App\Models\DriverDocument;
+use App\Models\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -136,15 +137,28 @@ class DriverDocumentController extends Controller
 
         // Get existing document record
         $existing = $user->driverDocument;
+        $existingVehicle = Vehicle::where('driver_id', $user->id)->first();
 
         // Build new document data (upload + delete old)
         $documentData = $this->buildDocumentData($request, $existing, $data['age']);
+        $vehicleData = $this->buildVehicleData($request, $existingVehicle);
 
         // Create or update the single record
         $user->driverDocument()->updateOrCreate(
             ['user_id' => $user->id],
             $documentData
         );
+
+        // Create or update vehicle data
+        Vehicle::updateOrCreate(
+            ['driver_id' => $user->id],
+            array_merge($vehicleData, [
+                'trip_type_id' => $request->trip_type_id,
+                'vehicle_brand_id' => $request->vehicle_brand_id,
+                'vehicle_model_id' => $request->vehicle_model_id,
+            ])
+        );
+
         $user->load('driverDocument');
         // Update user status
         $user->status = 'inreview';
@@ -174,6 +188,16 @@ class DriverDocumentController extends Controller
             'license_image' => 'nullable|mimes:jpg,jpeg,png,pdf',
             'criminal_record' => 'required|mimes:jpg,jpeg,png,pdf',
             'trip_type_id' => 'required|exists:trip_types,id',
+            'vehicle_brand_id' => 'required|integer|exists:vehicle_brands,id',
+            'vehicle_model_id' => 'required|integer|exists:vehicle_models,id',
+            'color' => 'required|string',
+            'year' => 'required|integer|min:1900|max:' . date('Y'),
+            'plate_number' => 'required|string',
+            'vehicle_license_image' => 'required|mimes:jpg,jpeg,png,pdf',
+            'car_front_image' => 'required|mimes:jpg,jpeg,png,pdf',
+            'car_back_image' => 'required|mimes:jpg,jpeg,png,pdf',
+            'car_left_image' => 'required|mimes:jpg,jpeg,png,pdf',
+            'car_right_image' => 'required|mimes:jpg,jpeg,png,pdf',
         ]);
 
         $validator->after(function ($validator) use ($request) {
@@ -258,6 +282,36 @@ class DriverDocumentController extends Controller
                 }
 
                 // Upload new file
+                $data[$field] = $this->uploadFile($request->file($field));
+            }
+        }
+
+        return $data;
+    }
+
+    private function buildVehicleData(Request $request, $existing)
+    {
+        $fields = [
+            'vehicle_license_image',
+            'car_front_image',
+            'car_back_image',
+            'car_left_image',
+            'car_right_image',
+        ];
+
+        $data = [
+            'color' => $request->color,
+            'year' => $request->year,
+            'plate_number' => $request->plate_number,
+            'status' => 'inreview',
+            'isactive' => true,
+        ];
+
+        foreach ($fields as $field) {
+            if ($request->hasFile($field)) {
+                if ($existing && $existing->$field) {
+                    $this->deleteOldFile($existing->$field);
+                }
                 $data[$field] = $this->uploadFile($request->file($field));
             }
         }

@@ -40,8 +40,8 @@ class TripType extends Model
         'updated_at',
         'deleted_at',
     ];
-    public function vehicleModels()
+    public function vehicleBrands()
     {
-        return $this->hasMany(VehicleModel::class);
+        return $this->hasMany(VehicleBrand::class, 'trip_type_id');
     }
 }
