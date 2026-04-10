@@ -191,7 +191,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
 // Fallback to serve storage files via API if public/storage symlink is not available.
 // Usage: GET /storage/{any/path/to/file}
 // NOTE: Preferred solution is to run `php artisan storage:link` so webserver serves /storage/* directly.
-Route::get('storage/{path}', function ($path) {
+Route::get('storage/public/{path}', function ($path) {
 	$fullPath = storage_path('app/public/' . $path);
 
 	if (! file_exists($fullPath)) {
