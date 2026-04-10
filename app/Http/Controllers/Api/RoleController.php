@@ -45,17 +45,13 @@ class RoleController extends Controller
         $roles = Role::latest()->get();
         return response()->json(['status' => true, 'data' => $roles]);
     }
-    // create role with assigned permissions (array of permission ids)
+    // create role with assigned permissions (array of permission ids or grouped payload)
     public function store(Request $request)
     {
         $validated = $request->validate([
             'name_ar' => ['required', 'string', 'unique:roles,name_ar'],
             'name_en' => ['required', 'string', 'unique:roles,name_en'],
-            'permissions' => 'array',
-            'permissions.*.module_name' => 'sometimes|string',
-            'permissions.*.permission_roles' => 'required|array',
-            'permissions.*.permission_roles.*.id' => 'required|integer|exists:permissions,id',
-            'permissions.*.permission_roles.*.assigned' => 'required|boolean',
+            'permissions' => 'array', // accept either grouped or flat array
         ]);
 
         $role = Role::create([
@@ -63,22 +59,20 @@ class RoleController extends Controller
             'name_en' => $validated['name_en'],
         ]);
 
-        // collect permission ids from grouped payload (only assigned === true)
-        $permIds = [];
-        foreach ($validated['permissions'] ?? [] as $group) {
-            foreach ($group['permission_roles'] ?? [] as $r) {
-                if (!isset($r['id']) || !is_numeric($r['id'])) continue;
-                $assigned = array_key_exists('assigned', $r)
-                    ? filter_var($r['assigned'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
-                    : true;
-                if ($assigned) {
-                    $permIds[] = (int)$r['id'];
-                }
+        // collect permission ids from grouped payload OR flat payload
+        $permIds = $this->collectAssignedPermissionIds($request->input('permissions', []));
+
+        // validate permission ids exist
+        if (! empty($permIds)) {
+            $existing = \App\Models\Permission::whereIn('id', $permIds)->pluck('id')->toArray();
+            $invalid = array_diff($permIds, $existing);
+            if (! empty($invalid)) {
+                return response()->json(['status' => false, 'message' => 'Invalid permission ids', 'invalid' => array_values($invalid)], 422);
             }
         }
 
-        if ($permIds) {
-            $role->permissions()->sync(array_unique($permIds));
+        if (! empty($permIds)) {
+            $role->permissions()->sync(array_values(array_unique($permIds)));
         }
 
         return response()->json(['status' => true, 'role' => $role->load('permissions')], 201);
@@ -95,38 +89,100 @@ class RoleController extends Controller
         $validated = $request->validate([
             'name_ar' => ['sometimes', 'string', Rule::unique('roles', 'name_ar')->ignore($role->id)],
             'name_en' => ['sometimes', 'string', Rule::unique('roles', 'name_en')->ignore($role->id)],
-            'permissions' => 'array',
-            'permissions.*.permission_roles' => 'required|array',
-            'permissions.*.permission_roles.*.id' => 'required|integer|exists:permissions,id',
-            'permissions.*.permission_roles.*.assigned' => 'required|boolean',
+            'permissions' => 'array', // accept grouped or flat
         ]);
 
         if (isset($validated['name_ar'])) $role->name_ar = $validated['name_ar'];
         if (isset($validated['name_en'])) $role->name_en = $validated['name_en'];
         $role->save();
 
+        // current assigned
         $currentAssigned = $role->permissions->pluck('id')->toArray();
         $toAttach = [];
         $toDetach = [];
 
-        foreach ($validated['permissions'] ?? [] as $group) {
-            foreach ($group['permission_roles'] ?? [] as $r) {
-                if (!isset($r['id']) || !is_numeric($r['id'])) continue;
-                $permId = (int)$r['id'];
-                $assigned = filter_var($r['assigned'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+        $permissionsPayload = $request->input('permissions', []);
 
-                if ($assigned && !in_array($permId, $currentAssigned)) {
-                    $toAttach[] = $permId;
-                } elseif (!$assigned && in_array($permId, $currentAssigned)) {
-                    $toDetach[] = $permId;
-                }
+        // detect grouped format (permissions.*.permission_roles)
+        $isGrouped = false;
+        if (! empty($permissionsPayload)) {
+            $first = $permissionsPayload[array_key_first($permissionsPayload)];
+            if (is_array($first) && array_key_exists('permission_roles', $first)) {
+                $isGrouped = true;
             }
         }
 
-        if ($toAttach) $role->permissions()->attach(array_unique($toAttach));
-        if ($toDetach) $role->permissions()->detach(array_unique($toDetach));
+        if ($isGrouped) {
+            // existing grouped logic: iterate groups and apply assigned flags
+            foreach ($permissionsPayload as $group) {
+                foreach ($group['permission_roles'] ?? [] as $r) {
+                    if (!isset($r['id']) || !is_numeric($r['id'])) continue;
+                    $permId = (int)$r['id'];
+                    $assigned = array_key_exists('assigned', $r)
+                        ? filter_var($r['assigned'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE)
+                        : true;
 
-        return response()->json(['status' => true, 'role' => $role]);
+                    if ($assigned && !in_array($permId, $currentAssigned)) {
+                        $toAttach[] = $permId;
+                    } elseif ($assigned === false && in_array($permId, $currentAssigned)) {
+                        $toDetach[] = $permId;
+                    }
+                }
+            }
+        } else {
+            // flat payload: can be array of ids OR array of {id, assigned}
+            $desiredAssigned = [];
+            $explicitFalse = [];
+
+            foreach ($permissionsPayload as $p) {
+                if (is_numeric($p)) {
+                    $desiredAssigned[] = (int)$p;
+                } elseif (is_array($p) || is_object($p)) {
+                    $r = (array) $p;
+                    if (! isset($r['id']) || ! is_numeric($r['id'])) continue;
+                    $permId = (int) $r['id'];
+                    if (array_key_exists('assigned', $r)) {
+                        $assigned = filter_var($r['assigned'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                        if ($assigned) {
+                            $desiredAssigned[] = $permId;
+                        } else {
+                            $explicitFalse[] = $permId;
+                        }
+                    } else {
+                        // if no assigned flag, treat as desired assigned
+                        $desiredAssigned[] = $permId;
+                    }
+                }
+            }
+
+            // validate ids exist
+            $allIds = array_values(array_unique(array_merge($desiredAssigned, $explicitFalse)));
+            if (! empty($allIds)) {
+                $existing = \App\Models\Permission::whereIn('id', $allIds)->pluck('id')->toArray();
+                $invalid = array_diff($allIds, $existing);
+                if (! empty($invalid)) {
+                    return response()->json(['status' => false, 'message' => 'Invalid permission ids', 'invalid' => array_values($invalid)], 422);
+                }
+            }
+
+            // If client sent explicit flags (objects) we act per flags:
+            if (! empty($desiredAssigned) || ! empty($explicitFalse)) {
+                // attach desiredAssigned not currently assigned
+                $toAttach = array_diff($desiredAssigned, $currentAssigned);
+                // detach explicit false ones that are currently assigned
+                $toDetach = array_intersect($explicitFalse, $currentAssigned);
+            } else {
+                // client sent flat list of ids (possibly empty) -> treat as desired final set
+                $desiredAssigned = array_values(array_unique($desiredAssigned));
+                $toAttach = array_diff($desiredAssigned, $currentAssigned);
+                $toDetach = array_diff($currentAssigned, $desiredAssigned);
+            }
+        }
+
+        if (! empty($toAttach)) $role->permissions()->attach(array_values(array_unique($toAttach)));
+        if (! empty($toDetach)) $role->permissions()->detach(array_values(array_unique($toDetach)));
+
+        return response()->json(['status' => true, 'role' => $role->load('permissions')]);
     }
 
     // soft-delete a role
@@ -235,5 +291,59 @@ class RoleController extends Controller
         usort($result, fn($a, $b) => strcmp($a['module_name'], $b['module_name']));
 
         return ['status' => true, 'permission_rules' => $result];
+    }
+
+    /**
+     * Helper: collect assigned permission ids from grouped or flat payload
+     */
+    private function collectAssignedPermissionIds($permissionsPayload)
+    {
+        $permIds = [];
+
+        // grouped?
+        $isGrouped = false;
+        if (! empty($permissionsPayload)) {
+            $first = $permissionsPayload[array_key_first($permissionsPayload)];
+            if (is_array($first) && array_key_exists('permission_roles', $first)) {
+                $isGrouped = true;
+            }
+        }
+
+        if ($isGrouped) {
+            foreach ($permissionsPayload as $group) {
+                foreach ($group['permission_roles'] ?? [] as $r) {
+                    if (! isset($r['id']) || ! is_numeric($r['id'])) continue;
+                    if (array_key_exists('assigned', $r)) {
+                        $assigned = filter_var($r['assigned'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                        if ($assigned === true) {
+                            $permIds[] = (int) $r['id'];
+                        }
+                    } else {
+                        // backwards-compatible: include if no assigned flag
+                        $permIds[] = (int) $r['id'];
+                    }
+                }
+            }
+        } else {
+            // flat array: numeric ids or objects
+            foreach ($permissionsPayload as $p) {
+                if (is_numeric($p)) {
+                    $permIds[] = (int) $p;
+                } elseif (is_array($p) || is_object($p)) {
+                    $r = (array) $p;
+                    if (! isset($r['id']) || ! is_numeric($r['id'])) continue;
+                    if (array_key_exists('assigned', $r)) {
+                        $assigned = filter_var($r['assigned'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                        if ($assigned === true) {
+                            $permIds[] = (int) $r['id'];
+                        }
+                    } else {
+                        $permIds[] = (int) $r['id'];
+                    }
+                }
+            }
+        }
+
+        return array_values(array_unique($permIds));
     }
 }
