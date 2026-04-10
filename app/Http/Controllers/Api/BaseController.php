@@ -42,8 +42,10 @@ class BaseController extends Controller
         }
         $query->orderBy($sortBy, $sortDir);
         
-        if ($user = auth()->user()->isDriver()) {
-            $query->withoutTrashed()->where('status', 'active');
+        // safely check if authenticated user is a driver
+        $authUser = auth()->user();
+        if ($authUser && method_exists($authUser, 'isDriver') && $authUser->isDriver()) {
+            $query->where('status', 'active');
         }
         $data = $query->paginate($limit);
 
@@ -126,14 +128,8 @@ class BaseController extends Controller
 
     /**
      * Store uploaded image safely, delete old image if provided, and return stored asset URL.
-     * Throws HttpResponseException with 422 when PHP-level upload errors occur.
-     *
-     * @param UploadedFile|null $uploaded
-     * @param string $folder
-     * @param string|null $oldUrl
-     * @return string|null
      */
-    private function storeUploadedImage($uploaded, string $folder, string $oldUrl = null)
+    protected function storeUploadedImage($uploaded, string $folder, string $oldUrl = null)
     {
         if (! $uploaded instanceof UploadedFile) {
             return null;
@@ -162,16 +158,23 @@ class BaseController extends Controller
             ], 422));
         }
 
-        // delete old file if exists
+        // delete old file if exists (handle both full URL and relative path)
         if ($oldUrl) {
-            $oldPath = str_replace(asset('storage/') . '/', '', $oldUrl);
-            Storage::disk('public')->delete($oldPath);
+            $storageSegment = '/storage/';
+            if (strpos($oldUrl, $storageSegment) !== false) {
+                $oldPath = substr($oldUrl, strpos($oldUrl, $storageSegment) + strlen($storageSegment));
+            } else {
+                $oldPath = ltrim($oldUrl, '/');
+            }
+            if (Storage::disk('public')->exists($oldPath)) {
+                Storage::disk('public')->delete($oldPath);
+            }
         }
 
         $filename = time() . '_' . uniqid() . '.' . $uploaded->getClientOriginalExtension();
         $uploaded->storeAs($folder, $filename, 'public');
 
-        return asset('storage/' . $folder . '/' . $filename);
+        return Storage::disk('public')->url($folder . '/' . $filename);
     }
 
     /**

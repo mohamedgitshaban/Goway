@@ -34,11 +34,10 @@ class AdminController extends BaseUserController
             'role_id'    => 'sometimes|nullable|integer|exists:roles,id',
         ]);
 
-        // handle personal image upload (store on public disk) — returns public URL
-        $personalImageUrl = null;
+        // handle personal image upload (store on public disk)
+        $personalImagePath = null;
         if ($request->hasFile('personal_image') && $request->file('personal_image')->isValid()) {
-            $path = $request->file('personal_image')->store('users', 'public');
-            $personalImageUrl = Storage::disk('public')->url($path);
+            $personalImagePath = $request->file('personal_image')->store('users', 'public');
         }
 
         DB::beginTransaction();
@@ -51,7 +50,8 @@ class AdminController extends BaseUserController
             $admin->phone = $validated['phone'];
             $admin->password = Hash::make($validated['password']);
             $admin->status = 'active';
-            $admin->personal_image = $personalImageUrl;
+            // store relative path; AdminResource builds full URL
+            $admin->personal_image = $personalImagePath;
             $admin->role_id = $validated['role_id'] ?? null;
 
             $admin->save(); // triggers model boot to set name/usertype
@@ -97,19 +97,24 @@ class AdminController extends BaseUserController
 
             // handle personal_image upload on update
             if ($request->hasFile('personal_image') && $request->file('personal_image')->isValid()) {
-                // delete old image if exists (supports stored path or full URL)
+                // delete old image if exists
                 if ($admin->personal_image) {
                     $this->deleteStoredFile($admin->personal_image);
                 }
 
-                $path = $request->file('personal_image')->store('users', 'public');
-                // store as public URL (consistent with store())
-                $admin->personal_image = Storage::disk('public')->url($path);
+                // store new file and get relative path
+                $newPath = $request->file('personal_image')->store('users', 'public');
+                // force attribute change by setting to null first, then new path
+                $admin->personal_image = null;
+                $admin->save();
+                $admin->personal_image = $newPath;
             }
 
             $admin->save();
             DB::commit();
 
+            // refresh from DB to ensure we have latest values
+            $admin->refresh();
             $admin->load(['role']);
             return response()->json(['message' => 'Admin updated', 'admin' => new AdminResource($admin)]);
         } catch (\Throwable $e) {
@@ -123,20 +128,17 @@ class AdminController extends BaseUserController
     {
         if (! $urlOrPath) return;
 
-        // If it's a full URL containing '/storage/', extract the relative path after '/storage/'
+        // If it's a full URL containing '/storage/', extract the relative path
         $storageSegment = '/storage/';
         if (strpos($urlOrPath, $storageSegment) !== false) {
             $relative = substr($urlOrPath, strpos($urlOrPath, $storageSegment) + strlen($storageSegment));
         } else {
-            // assume it's already a relative storage path
             $relative = ltrim($urlOrPath, '/');
         }
 
-        // delete if exists
-        try {
+        // delete from public disk
+        if (Storage::disk('public')->exists($relative)) {
             Storage::disk('public')->delete($relative);
-        } catch (\Throwable $e) {
-            // ignore errors deleting (file may not exist)
         }
     }
 }
