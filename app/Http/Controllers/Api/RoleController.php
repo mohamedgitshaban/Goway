@@ -14,24 +14,29 @@ class RoleController extends Controller
     // list roles
     public function index(Request $request)
     {
-        $roles = Role::with('permissions')->orderBy('name_en')->get();
+        $limit = (int) $request->input('limit', 15);
+        $roles = Role::with('permissions')->orderBy('name_en')->paginate($limit);
 
-        $out = $roles->map(function ($role) use ($request) {
+        // transform the paginator collection to include permissions payload per role
+        $roles->getCollection()->transform(function ($role) use ($request) {
             $assigned = $role->permissions->pluck('id')->toArray();
             $permissionPayload = $this->buildPermissionsPayload($request, true, $assigned);
             return [
+                'id' => $role->id,
                 'name_en' => $role->name_en,
                 'name_ar' => $role->name_ar,
+                // include any other role attributes you want in the listing (image, status, etc.)
                 'permissions' => $permissionPayload,
             ];
         });
 
-        return response()->json(['status' => true, 'roles' => $out->values()]);
+        // return standard paginator structure: { data: [...], links: {...}, meta: {...} }
+        return response()->json($roles->toArray());
     }
         public function selectAllRoles()
     {
         $roles = Role::latest()->get();
-        return response()->json(['status' => true, 'roles' => $roles]);
+        return response()->json(['status' => true, 'data' => $roles]);
     }
     // create role with assigned permissions (array of permission ids)
     public function store(Request $request)
