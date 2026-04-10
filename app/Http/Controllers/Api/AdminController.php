@@ -7,6 +7,7 @@ use App\Http\Resources\AdminResource;
 use App\Models\Admin;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Storage;
 
 class AdminController extends BaseUserController
 {
@@ -27,9 +28,15 @@ class AdminController extends BaseUserController
             'email' => 'nullable|email|unique:users,email',
             'phone' => 'required|string|unique:users,phone',
             'password' => 'required|string|min:6',
-            'permissions' => 'array',
-            'permissions.*' => 'integer|exists:permissions,id',
+            'personal_image' => 'sometimes|file|image|max:5120',
+            'role_id' => 'sometimes|nullable|integer|exists:roles,id',
         ]);
+
+        // handle personal image upload (store on public disk)
+        $personalImagePath = null;
+        if ($request->hasFile('personal_image') && $request->file('personal_image')->isValid()) {
+            $personalImagePath = $request->file('personal_image')->store('users', 'public');
+        }
 
         $admin = Admin::create([
             'first_name' => $data['first_name'],
@@ -38,11 +45,9 @@ class AdminController extends BaseUserController
             'phone' => $data['phone'],
             'password' => Hash::make($data['password']),
             'status' => 'active',
+            'personal_image' => $personalImagePath,
+            'role_id' => $data['role_id'] ?? null,
         ]);
-
-        if (! empty($data['permissions'])) {
-            $admin->syncPermissions($data['permissions']);
-        }
 
         return response()->json(['message' => 'Admin created', 'admin' => new AdminResource($admin)], 201);
     }
@@ -62,7 +67,11 @@ class AdminController extends BaseUserController
             'phone' => 'sometimes|string|unique:users,phone,' . $id,
             'password' => 'sometimes|nullable|string|min:6',
             'permissions' => 'sometimes|array',
-            'permissions.*' => 'integer|exists:permissions,id',
+            'permissions.*.module_name' => 'sometimes|string',
+            'permissions.*.roles' => 'sometimes|array',
+            'permissions.*.roles.*.id' => 'sometimes|integer|exists:permissions,id',
+            'permissions.*.roles.*.assigned' => 'required|boolean',
+            'personal_image' => 'sometimes|file|image|max:5120',
         ]);
 
         if (isset($data['first_name'])) $admin->first_name = $data['first_name'];
@@ -73,8 +82,16 @@ class AdminController extends BaseUserController
 
         $admin->save();
 
-        if (array_key_exists('permissions', $data)) {
-            $admin->syncPermissions($data['permissions'] ?? []);
+        // handle personal_image upload on update
+        if ($request->hasFile('personal_image') && $request->file('personal_image')->isValid()) {
+            // delete old image if exists
+            if ($admin->personal_image) {
+                Storage::disk('public')->delete($admin->personal_image);
+            }
+
+            $path = $request->file('personal_image')->store('users', 'public');
+            $admin->personal_image = $path;
+            $admin->save();
         }
 
         return response()->json(['message' => 'Admin updated', 'admin' => new AdminResource($admin)]);

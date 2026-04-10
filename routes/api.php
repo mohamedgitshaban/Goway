@@ -136,6 +136,17 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::get('/', [\App\Http\Controllers\Api\AdminPermissionController::class, 'index']);
     });
 
+    // Roles management
+    Route::prefix('roles')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\RoleController::class, 'index'])->middleware('admin.permission:roles.index');
+        Route::get('/select', [\App\Http\Controllers\Api\RoleController::class, 'selectAllRoles']);
+        Route::post('/', [\App\Http\Controllers\Api\RoleController::class, 'store'])->middleware('admin.permission:roles.store');
+        Route::get('/{id}', [\App\Http\Controllers\Api\RoleController::class, 'show'])->middleware('admin.permission:roles.show');
+        Route::put('/{id}', [\App\Http\Controllers\Api\RoleController::class, 'update'])->middleware('admin.permission:roles.update');
+        Route::delete('/{id}', [\App\Http\Controllers\Api\RoleController::class, 'destroy'])->middleware('admin.permission:roles.destroy');
+        Route::put('/{id}/restore', [\App\Http\Controllers\Api\RoleController::class, 'restore'])->middleware('admin.permission:roles.restore');
+    });
+
     // Admin-specific permission assignment endpoints
     Route::get('/admins/{id}/permissions', [\App\Http\Controllers\Api\AdminPermissionController::class, 'adminPermissions']);
     Route::put('/admins/{id}/permissions', [\App\Http\Controllers\Api\AdminPermissionController::class, 'syncAdminPermissions']);

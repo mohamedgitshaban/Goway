@@ -91,6 +91,14 @@ class User extends Authenticatable
     }
 
     /**
+     * Role relation (nullable)
+     */
+    public function role()
+    {
+        return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    /**
      * Check if admin has a permission by name.
      */
     public function hasPermission(string $name): bool
@@ -101,10 +109,26 @@ class User extends Authenticatable
 
         // eager-loaded check
         if ($this->relationLoaded('permissions')) {
-            return $this->permissions->contains('name', $name);
+            if ($this->permissions->contains('name', $name)) {
+                return true;
+            }
+            // check role permissions if role relation is loaded
+            if ($this->relationLoaded('role') && $this->role && $this->role->relationLoaded('permissions')) {
+                return $this->role->permissions->contains('name', $name);
+            }
+            return false;
+        }
+        // check direct admin permissions first
+        if ($this->permissions()->where('name', $name)->exists()) {
+            return true;
         }
 
-        return $this->permissions()->where('name', $name)->exists();
+        // check role permissions
+        if ($this->role()->exists()) {
+            return $this->role->permissions()->where('name', $name)->exists();
+        }
+
+        return false;
     }
 
     /**

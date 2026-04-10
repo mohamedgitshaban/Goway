@@ -24,7 +24,16 @@ class CheckAdminPermission
             return $next($request);
         }
 
-        if ($user->hasPermission($permission)) {
+        // Check permission via role
+        if (method_exists($user, 'role') && $user->role) {
+            $rolePermissions = $user->role->permissions->pluck('name')->toArray();
+            if (in_array($permission, $rolePermissions)) {
+                return $next($request);
+            }
+        }
+
+        // Fallback to user-level permission check if available
+        if (method_exists($user, 'hasPermission') && $user->hasPermission($permission)) {
             return $next($request);
         }
 

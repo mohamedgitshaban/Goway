@@ -91,20 +91,6 @@ class AdminPermissionController extends Controller
 
         return response()->json(['status' => true, 'permissions' => $result]);
     }
-
-    // Create a new permission
-    public function store(Request $request)
-    {
-        $data = $request->validate([
-            'name' => 'required|string|unique:permissions,name',
-            'description' => 'nullable|string',
-        ]);
-
-        $perm = Permission::create($data);
-
-        return response()->json(['status' => true, 'permission' => $perm], 201);
-    }
-
     // Get a specific admin's permissions (returns all permissions with assigned flag)
     public function adminPermissions(Request $request, $adminId)
     {
@@ -116,13 +102,80 @@ class AdminPermissionController extends Controller
         $all = Permission::orderBy('name')->get();
         $assigned = $admin->permissions()->pluck('permissions.id')->toArray();
 
-        $result = $all->map(function ($p) use ($assigned) {
-            return [
-                'id' => $p->id,
-                'name' => $p->name,
-                'description' => $p->description,
-                'assigned' => in_array($p->id, $assigned),
+        // Determine locale same as index: accept_lang header / query or Accept-Language
+        $acceptHeader = $request->header('accept_lang') ?: $request->get('accept_lang') ?: $request->header('Accept-Language');
+
+        if ($acceptHeader) {
+            $parts = preg_split('/[;,]/', $acceptHeader);
+            $locale = isset($parts[0]) ? trim($parts[0]) : app()->getLocale();
+            if (strlen($locale) > 2 && strpos($locale, '-') !== false) {
+                $locale = strtolower(explode('-', $locale)[0]);
+            } elseif (strlen($locale) > 2 && strpos($locale, '_') !== false) {
+                $locale = strtolower(explode('_', $locale)[0]);
+            }
+            $locale = strtolower($locale);
+        } else {
+            $locale = app()->getLocale();
+        }
+
+        try {
+            app()->setLocale($locale);
+        } catch (\Exception $e) {
+            // ignore
+        }
+
+        // group all permissions by module and include assigned flag
+        $groups = [];
+        foreach ($all as $p) {
+            $parts = explode('.', $p->name, 2);
+            $module = $parts[0];
+            $action = isset($parts[1]) ? $parts[1] : null;
+
+            if (! isset($groups[$module])) {
+                $groups[$module] = [];
+            }
+
+            if ($action) {
+                $groups[$module][$action] = [
+                    'id' => $p->id,
+                    'assigned' => in_array($p->id, $assigned),
+                    'description' => $p->description,
+                ];
+            }
+        }
+
+        $result = [];
+        foreach ($groups as $module => $actions) {
+            $roles = [];
+            foreach ($actions as $actionName => $meta) {
+                $actionKey = 'permissions.actions.' . $actionName;
+                $actionLabel = Lang::has($actionKey) ? Lang::get($actionKey) : $actionName;
+
+                $roles[] = [
+                    'id' => $meta['id'],
+                    'name' => $actionName,
+                    'label' => $actionLabel,
+                    'assigned' => $meta['assigned'],
+                    'description' => $meta['description'],
+                ];
+            }
+
+            usort($roles, function ($a, $b) {
+                return strcmp($a['name'], $b['name']);
+            });
+
+            $moduleKey = 'permissions.modules.' . $module;
+            $moduleLabel = Lang::has($moduleKey) ? Lang::get($moduleKey) : $module;
+
+            $result[] = [
+                'module_name' => $module,
+                'module_label' => $moduleLabel,
+                'roles' => $roles,
             ];
+        }
+
+        usort($result, function ($a, $b) {
+            return strcmp($a['module_name'], $b['module_name']);
         });
 
         return response()->json(['status' => true, 'permissions' => $result]);
@@ -135,13 +188,37 @@ class AdminPermissionController extends Controller
         if (! $admin || ! $admin->isAdmin()) {
             return response()->json(['status' => false, 'message' => 'Admin not found'], 404);
         }
-
-        $data = $request->validate([
+        $validated = $request->validate([
             'permissions' => 'array',
-            'permissions.*' => 'integer|exists:permissions,id',
+            'permissions.*.module_name' => 'sometimes|string',
+            'permissions.*.roles' => 'required|array',
+            'permissions.*.roles.*.id' => 'required|integer|exists:permissions,id',
+            'permissions.*.roles.*.assigned' => 'required|boolean',
         ]);
 
-        $permIds = $data['permissions'] ?? [];
+        foreach ($validated['permissions'] as $group) {
+            if (! empty($group['roles']) && is_array($group['roles'])) {
+                foreach ($group['roles'] as $r) {
+                    if (! isset($r['id']) || ! is_numeric($r['id'])) {
+                        continue;
+                    }
+
+                    // If `assigned` is provided, only include when it's truthy.
+                    if (array_key_exists('assigned', $r)) {
+                        $assigned = filter_var($r['assigned'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                        if ($assigned === true) {
+                            $permIds[] = (int) $r['id'];
+                        }
+                    } else {
+                        // backwards-compat: no assigned flag -> include id
+                        $permIds[] = (int) $r['id'];
+                    }
+                }
+            }
+        }
+
+
+        $permIds = array_values(array_unique($permIds));
 
         $admin->syncPermissions($permIds);
 

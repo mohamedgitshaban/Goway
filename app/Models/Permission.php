@@ -16,7 +16,7 @@ class Permission extends Model
 
     public function admins()
     {
-        return $this->belongsToMany(User::class, 'admin_permissions', 'permission_id', 'admin_id')
+        return $this->belongsToMany(User::class, 'role_permissions', 'permission_id', 'admin_id')
             ->withPivot('can_edit')
             ->withTimestamps();
     }

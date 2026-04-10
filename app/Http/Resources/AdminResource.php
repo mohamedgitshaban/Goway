@@ -19,6 +19,18 @@ class AdminResource extends JsonResource
             'personal_image'  => $this->personal_image,
             'wallet_balance' => $this->wallet ? $this->wallet->balance : 0,
             'status'     => $this->status,
+            'role'       => $this->role ? [
+                'id' => $this->role->id,
+                'name_en' => $this->role->name_en,
+                'name_ar' => $this->role->name_ar,
+                'permissions' => $this->role->permissions->map(function($perm) {
+                    return [
+                        'id' => $perm->id,
+                        'name' => $perm->name,
+                        'label' => $perm->label ?? null,
+                    ];
+                })->values(),
+            ] : null,
         ];
     }
 }
