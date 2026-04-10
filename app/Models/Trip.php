@@ -47,6 +47,11 @@ class Trip extends Model
         'driver_assigned_at'  => 'datetime',
         'driver_arrived_at'   => 'datetime',
         'started_at'          => 'datetime',
+        'base_fare'           => 'decimal:2',
+        'price_per_km'        => 'decimal:2',
+        'original_price'      => 'decimal:2',
+        'discount_amount'     => 'decimal:2',
+        'final_price'        => 'decimal:2',
         'completed_at'        => 'datetime',
         'cancelled_at'        => 'datetime',
     ];
