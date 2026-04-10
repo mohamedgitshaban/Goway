@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\RoleResource;
 use App\Models\Permission;
 use App\Models\Role;
 use Illuminate\Http\Request;
@@ -15,25 +16,24 @@ class RoleController extends Controller
     public function index(Request $request)
     {
         $limit = (int) $request->input('limit', 15);
-        $roles = Role::with('permissions')->orderBy('name_en')->paginate($limit);
 
-        // transform the paginator collection to include permissions payload per role
+        $roles = Role::with('permissions')
+            ->orderBy('name_en')
+            ->paginate($limit);
+
+        // Attach computed permission payload to each role model in the paginator collection
         $roles->getCollection()->transform(function ($role) use ($request) {
             $assigned = $role->permissions->pluck('id')->toArray();
-            $permissionPayload = $this->buildPermissionsPayload($request, true, $assigned);
-            return [
-                'id' => $role->id,
-                'name_en' => $role->name_en,
-                'name_ar' => $role->name_ar,
-                // include any other role attributes you want in the listing (image, status, etc.)
-                'permissions' => $permissionPayload,
-            ];
+            $role->permission_payload = $this->buildPermissionsPayload($request, true, $assigned);
+            return $role;
         });
 
-        // return standard paginator structure: { data: [...], links: {...}, meta: {...} }
-        return response()->json($roles->toArray());
+        // Return a Resource collection (will serialize to { data, links, meta })
+        return RoleResource::collection($roles);
     }
-        public function selectAllRoles()
+
+
+    public function selectAllRoles()
     {
         $roles = Role::latest()->get();
         return response()->json(['status' => true, 'data' => $roles]);
@@ -161,15 +161,10 @@ class RoleController extends Controller
         }
 
         $assigned = $role->permissions->pluck('id')->toArray();
-        $permissionPayload = $this->buildPermissionsPayload($request, true, $assigned);
+        $role->permission_payload = $this->buildPermissionsPayload($request, true, $assigned);
 
-        $out = [
-            'name_en' => $role->name_en,
-            'name_ar' => $role->name_ar,
-            'permission' => $permissionPayload,
-        ];
-
-        return response()->json(['status' => true, 'role' => $out]);
+        // return single resource
+        return new RoleResource($role);
     }
 
     // build permissions payload similar to AdminPermissionController
@@ -191,7 +186,8 @@ class RoleController extends Controller
 
         try {
             app()->setLocale($locale);
-        } catch (\Exception $e) {}
+        } catch (\Exception $e) {
+        }
 
         $groups = [];
         foreach ($perms as $p) {
