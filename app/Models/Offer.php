@@ -9,8 +9,10 @@ use Illuminate\Database\Eloquent\Builder;
 class Offer extends Model
 {
     protected $fillable = [
-        'title',
-        'description',
+        'title_ar',
+        'title_en',
+        'description_ar',
+        'description_en',
         'discount_type',
         'discount_value',
         'max_discount_amount',

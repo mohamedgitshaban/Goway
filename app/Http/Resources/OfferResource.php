@@ -10,8 +10,10 @@ class OfferResource extends JsonResource
     {
         return [
             'id'                  => $this->id,
-            'title'               => $this->title,
-            'description'         => $this->description,
+            'title_ar'            => $this->title_ar,
+            'title_en'            => $this->title_en,
+            'description_ar'      => $this->description_ar,
+            'description_en'      => $this->description_en,
             'discount_type'       => $this->discount_type,
             'discount_value'      => $this->discount_value,
             'max_discount_amount' => $this->max_discount_amount,

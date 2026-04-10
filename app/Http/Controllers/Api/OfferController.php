@@ -12,7 +12,7 @@ class OfferController extends BaseDiscountController
         $this->model = Offer::class;
         $this->resource = OfferResource::class;
 
-        $this->searchFields = ['title', 'description', 'trip_type'];
+        $this->searchFields = ['title_ar' , 'title_en', 'description_ar', 'description_en', 'trip_type'];
     }
 
     protected function rules($id = null)
@@ -20,8 +20,10 @@ class OfferController extends BaseDiscountController
         $isUpdate = $id !== null;
 
         return [
-            'title'              => ($isUpdate ? 'sometimes|required' : 'required') . '|string|max:255',
-            'description'        => 'nullable|string',
+            'title_ar'           => ($isUpdate ? 'sometimes|required' : 'required') . '|string|max:255',
+            'title_en'           => ($isUpdate ? 'sometimes|required' : 'required') . '|string|max:255',
+            'description_ar'     => 'nullable|string',
+            'description_en'     => 'nullable|string',
             'discount_type'      => ($isUpdate ? 'sometimes|required' : 'required') . '|in:percentage,fixed',
             'discount_value'     => ($isUpdate ? 'sometimes|required' : 'required') . '|numeric|min:0',
             'max_discount_amount' => 'nullable|numeric|min:0',
