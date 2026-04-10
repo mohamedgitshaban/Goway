@@ -65,7 +65,6 @@ class AdminController extends BaseUserController
             'last_name' => 'sometimes|string',
             'email' => 'sometimes|nullable|email|unique:users,email,' . $id,
             'phone' => 'sometimes|string|unique:users,phone,' . $id,
-            'password' => 'sometimes|nullable|string|min:6',
             'permissions' => 'sometimes|array',
             'permissions.*.module_name' => 'sometimes|string',
             'permissions.*.roles' => 'sometimes|array',
@@ -78,7 +77,6 @@ class AdminController extends BaseUserController
         if (isset($data['last_name'])) $admin->last_name = $data['last_name'];
         if (array_key_exists('email', $data)) $admin->email = $data['email'];
         if (array_key_exists('phone', $data)) $admin->phone = $data['phone'];
-        if (! empty($data['password'])) $admin->password = Hash::make($data['password']);
 
         $admin->save();
 
