@@ -134,23 +134,48 @@ class RoleController extends Controller
             $desiredAssigned = [];
             $explicitFalse = [];
 
+            // detect fast path: all items are numeric IDs
+            $hasObjects = false;
             foreach ($permissionsPayload as $p) {
-                if (is_numeric($p)) {
-                    $desiredAssigned[] = (int)$p;
-                } elseif (is_array($p) || is_object($p)) {
-                    $r = (array) $p;
-                    if (! isset($r['id']) || ! is_numeric($r['id'])) continue;
-                    $permId = (int) $r['id'];
-                    if (array_key_exists('assigned', $r)) {
-                        $assigned = filter_var($r['assigned'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
-                        if ($assigned) {
-                            $desiredAssigned[] = $permId;
+                if (!is_numeric($p) && !is_array($p) && !is_object($p)) {
+                    // unexpected type, skip it
+                    continue;
+                }
+                if (is_array($p) || is_object($p)) {
+                    $hasObjects = true;
+                    break;
+                }
+            }
+
+            if (! $hasObjects) {
+                // fast path: treat payload as array of ids
+                foreach ($permissionsPayload as $p) {
+                    if (is_numeric($p)) {
+                        $desiredAssigned[] = (int)$p;
+                    }
+                }
+            } else {
+                // mixed/object payload: preserve existing behavior (id + assigned flag)
+                foreach ($permissionsPayload as $p) {
+                    if (is_numeric($p)) {
+                        $desiredAssigned[] = (int)$p;
+                        continue;
+                    }
+                    if (is_array($p) || is_object($p)) {
+                        $r = (array) $p;
+                        if (! isset($r['id']) || ! is_numeric($r['id'])) continue;
+                        $permId = (int) $r['id'];
+                        if (array_key_exists('assigned', $r)) {
+                            $assigned = filter_var($r['assigned'], FILTER_VALIDATE_BOOLEAN, FILTER_NULL_ON_FAILURE);
+                            if ($assigned) {
+                                $desiredAssigned[] = $permId;
+                            } else {
+                                $explicitFalse[] = $permId;
+                            }
                         } else {
-                            $explicitFalse[] = $permId;
+                            // if no assigned flag, treat as desired assigned
+                            $desiredAssigned[] = $permId;
                         }
-                    } else {
-                        // if no assigned flag, treat as desired assigned
-                        $desiredAssigned[] = $permId;
                     }
                 }
             }
