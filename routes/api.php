@@ -60,6 +60,7 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
     Route::post('/trips/{trip}/cancel', [DriverTripController::class, 'cancel']);
     Route::post('/driver/trips/{trip}/negotiate', [DriverTripController::class, 'negotiate']);
     Route::post('/driver/trips/{trip}/rate', [DriverTripController::class, 'rateClient']);
+    
 });
 
 // Client-specific grouped endpoints
@@ -133,7 +134,6 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
     // Permissions management for admin users
     Route::prefix('permissions')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\AdminPermissionController::class, 'index']);
-        Route::post('/', [\App\Http\Controllers\Api\AdminPermissionController::class, 'store']);
     });
 
     // Admin-specific permission assignment endpoints
