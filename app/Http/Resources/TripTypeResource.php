@@ -16,7 +16,7 @@ class TripTypeResource extends JsonResource
                 'id'           => $this->id,
                 'name_en'      => $this->name_en,
                 'name_ar'      => $this->name_ar,
-                'need_licence' => $this->need_licence?'true':'false',
+                'need_licence' => $this->need_licence?true:false,
                 'image'         => $this->image,
             ];
         }
@@ -30,7 +30,7 @@ class TripTypeResource extends JsonResource
             'price_per_km'  => $this->price_per_km,
             'profit_margin' => $this->profit_margin,
             'max_distance'  => $this->max_distance,
-            'need_licence'  => $this->need_licence?'true':'false',
+            'need_licence'  => $this->need_licence?true:false,
             'status'        => $this->status,
         ];
     }
