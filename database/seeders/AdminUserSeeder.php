@@ -31,7 +31,7 @@ class AdminUserSeeder extends Seeder
             'offers.index','offers.store','offers.show','offers.update','offers.destroy',
             'coupons.index','coupons.store','coupons.show','coupons.update','coupons.destroy',
             // trips
-            'trips.index',
+            'trips.index','roles.index','roles.store', 'roles.show', 'roles.update', 'roles.destroy', 'roles.restore',
         ];
 
         $permIds = [];
@@ -39,31 +39,5 @@ class AdminUserSeeder extends Seeder
             $p = Permission::firstOrCreate(['name' => $name], ['description' => null]);
             $permIds[] = $p->id;
         }
-
-        // Create admin user if not exists
-        $email = env('INITIAL_ADMIN_EMAIL', 'admin@aa.com');
-        $phone = env('INITIAL_ADMIN_PHONE', '01234567890');
-        $password = env('INITIAL_ADMIN_PASSWORD', 'password');
-
-        $admin = Admin::where('email', $email)->orWhere('phone', $phone)->first();
-        if (! $admin) {
-            $admin = Admin::create([
-                'first_name' => 'Super',
-                'last_name' => 'Admin',
-                'email' => $email,
-                'phone' => $phone,
-                'password' => Hash::make($password),
-                'status' => 'active',
-            ]);
-
-            $this->command->info('Created admin: ' . $email . ' / ' . $phone);
-        } else {
-            $this->command->info('Admin already exists: ' . $admin->id);
-        }
-
-        // Attach all permissions to this admin
-        $admin->syncPermissions($permIds);
-
-        $this->command->info('Assigned ' . count($permIds) . ' permissions to admin id=' . $admin->id);
     }
 }
