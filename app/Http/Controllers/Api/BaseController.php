@@ -21,7 +21,7 @@ class BaseController extends Controller
         $search = $request->input('search');
         $status = $request->input('status');
         $sortBy = $request->input('sort_by', 'id');
-        $sortDir = $request->input('sort_dir', 'asc');
+        $sortDir = $request->input('sort_dir', 'desc');
         $trashed = $request->input('trashed'); // new filter
         $query = $this->model::query();
         if ($trashed === 'with') {

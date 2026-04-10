@@ -43,22 +43,18 @@ class AdminController extends BaseUserController
 
         DB::beginTransaction();
         try {
-            $admin = Admin::create([
-                'first_name'     => $validated['first_name'],
-                'last_name'      => $validated['last_name'],
-                'email'          => $validated['email'] ?? null,
-                'phone'          => $validated['phone'],
-                'password'       => Hash::make($validated['password']),
-                'status'         => 'active',
-                'personal_image' => $personalImageUrl,
-                'role_id'        => $validated['role_id'] ?? null,
-            ]);
+            // assign attributes directly to avoid mass-assignment / fillable issues
+            $admin = new Admin();
+            $admin->first_name = $validated['first_name'];
+            $admin->last_name = $validated['last_name'];
+            $admin->email = $validated['email'] ?? null;
+            $admin->phone = $validated['phone'];
+            $admin->password = Hash::make($validated['password']);
+            $admin->status = 'active';
+            $admin->personal_image = $personalImageUrl;
+            $admin->role_id = $validated['role_id'] ?? null;
 
-            // ensure role relation is set (in case model doesn't auto-fill)
-            if (! empty($validated['role_id'])) {
-                $admin->role_id = $validated['role_id'];
-                $admin->save();
-            }
+            $admin->save(); // triggers model boot to set name/usertype
 
             DB::commit();
 
@@ -87,33 +83,39 @@ class AdminController extends BaseUserController
             'personal_image' => 'sometimes|file|image|max:5120',
         ]);
 
-        if (isset($data['first_name'])) $admin->first_name = $data['first_name'];
-        if (isset($data['last_name'])) $admin->last_name = $data['last_name'];
-        if (array_key_exists('email', $data)) $admin->email = $data['email'];
-        if (array_key_exists('phone', $data)) $admin->phone = $data['phone'];
+        DB::beginTransaction();
+        try {
+            if (isset($data['first_name'])) $admin->first_name = $data['first_name'];
+            if (isset($data['last_name'])) $admin->last_name = $data['last_name'];
+            if (array_key_exists('email', $data)) $admin->email = $data['email'];
+            if (array_key_exists('phone', $data)) $admin->phone = $data['phone'];
 
-        // apply role change if provided (may be null to remove)
-        if (array_key_exists('role_id', $data)) {
-            $admin->role_id = $data['role_id'];
-        }
-
-        // handle personal_image upload on update
-        if ($request->hasFile('personal_image') && $request->file('personal_image')->isValid()) {
-            // delete old image if exists (supports stored path or full URL)
-            if ($admin->personal_image) {
-                $this->deleteStoredFile($admin->personal_image);
+            // apply role change if provided (may be null to remove)
+            if (array_key_exists('role_id', $data)) {
+                $admin->role_id = $data['role_id'];
             }
 
-            $path = $request->file('personal_image')->store('users', 'public');
-            // store as public URL (consistent with store())
-            $admin->personal_image = Storage::disk('public')->url($path);
+            // handle personal_image upload on update
+            if ($request->hasFile('personal_image') && $request->file('personal_image')->isValid()) {
+                // delete old image if exists (supports stored path or full URL)
+                if ($admin->personal_image) {
+                    $this->deleteStoredFile($admin->personal_image);
+                }
+
+                $path = $request->file('personal_image')->store('users', 'public');
+                // store as public URL (consistent with store())
+                $admin->personal_image = Storage::disk('public')->url($path);
+            }
+
+            $admin->save();
+            DB::commit();
+
+            $admin->load(['role']);
+            return response()->json(['message' => 'Admin updated', 'admin' => new AdminResource($admin)]);
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return response()->json(['status' => false, 'message' => 'Failed to update admin', 'error' => $e->getMessage()], 500);
         }
-
-        $admin->save();
-
-        $admin->load('role');
-
-        return response()->json(['message' => 'Admin updated', 'admin' => new AdminResource($admin)]);
     }
 
     // helper: delete a stored file given either a storage path or a public URL
