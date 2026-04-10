@@ -15,6 +15,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use App\Support\GeoHash;
+use App\Http\Resources\TripResource;
 
 class ClientTripController extends Controller
 {
@@ -154,6 +155,73 @@ class ClientTripController extends Controller
                 'trip_channel' => "trip.{$trip->id}",
             ]);
         });
+    }
+    /**
+     * Return paginated trips for the authenticated client with search and filters.
+     *
+     * Supported query params: limit, search (id or driver name/phone), status, trip_type_id, from, to, sort_by, sort_dir
+     */
+    public function index(Request $request)
+    {
+        $client = $request->user();
+
+        if ($client->usertype !== 'client') {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $limit = (int) $request->input('limit', 15);
+        $search = $request->input('search');
+        $status = $request->input('status');
+        $tripTypeId = $request->input('trip_type_id');
+        $from = $request->input('from');
+        $to = $request->input('to');
+        $sortBy = $request->input('sort_by', 'id');
+        $sortDir = $request->input('sort_dir', 'desc');
+
+        $query = Trip::with(['client', 'driver', 'tripType'])
+            ->where('client_id', $client->id);
+
+        if ($search) {
+            $query->where(function ($q) use ($search) {
+                if (is_numeric($search)) {
+                    $q->where('id', $search);
+                }
+
+                $q->orWhereHas('driver', function ($qd) use ($search) {
+                    $qd->where('name', 'LIKE', "%{$search}%")
+                        ->orWhere('phone', 'LIKE', "%{$search}%");
+                });
+            });
+        }
+
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        if ($tripTypeId) {
+            $query->where('trip_type_id', $tripTypeId);
+        }
+
+        if ($from) {
+            $query->whereDate('created_at', '>=', $from);
+        }
+
+        if ($to) {
+            $query->whereDate('created_at', '<=', $to);
+        }
+
+        $allowedSorts = ['id', 'created_at', 'started_at', 'completed_at', 'final_price', 'status'];
+        if (! in_array($sortBy, $allowedSorts)) {
+            $sortBy = 'id';
+        }
+
+        $sortDir = strtolower($sortDir) === 'asc' ? 'asc' : 'desc';
+
+        $query->orderBy($sortBy, $sortDir);
+
+        $data = $query->paginate($limit)->appends($request->query());
+
+        return TripResource::collection($data);
     }
     public function estimate(Request $request)
     {

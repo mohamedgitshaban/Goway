@@ -79,4 +79,39 @@ class User extends Authenticatable
     {
         return $this->hasOne(Wallet::class , 'user_id');
     }
+
+    /**
+     * Admin permissions relationship (only for users with usertype === admin)
+     */
+    public function permissions()
+    {
+        return $this->belongsToMany(Permission::class, 'admin_permissions', 'admin_id', 'permission_id')
+            ->withPivot('can_edit')
+            ->withTimestamps();
+    }
+
+    /**
+     * Check if admin has a permission by name.
+     */
+    public function hasPermission(string $name): bool
+    {
+        if (! $this->isAdmin()) {
+            return false;
+        }
+
+        // eager-loaded check
+        if ($this->relationLoaded('permissions')) {
+            return $this->permissions->contains('name', $name);
+        }
+
+        return $this->permissions()->where('name', $name)->exists();
+    }
+
+    /**
+     * Sync permissions by ids
+     */
+    public function syncPermissions(array $permissionIds)
+    {
+        return $this->permissions()->sync($permissionIds);
+    }
 }

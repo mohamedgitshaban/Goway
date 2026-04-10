@@ -25,4 +25,9 @@ class Client extends User
     {
         return $this->hasMany(FavoriteLocation::class , 'user_id');
     }
+    public function wallet()
+    {
+        return $this->hasOne(Wallet::class, 'user_id');
+    }
+
 }

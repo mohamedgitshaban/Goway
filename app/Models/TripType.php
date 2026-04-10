@@ -40,4 +40,8 @@ class TripType extends Model
         'updated_at',
         'deleted_at',
     ];
+    public function vehicleModels()
+    {
+        return $this->hasMany(VehicleModel::class);
+    }
 }
