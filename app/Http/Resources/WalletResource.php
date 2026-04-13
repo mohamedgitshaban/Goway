@@ -20,7 +20,7 @@ class WalletResource extends JsonResource
             'user'    => [
                 'id'   => $this->user->id,
                 'name' => $this->user->name,
-                'type' => $this->user->type,
+                'type' => $this->user->usertype,
             ],
         ];
     }
