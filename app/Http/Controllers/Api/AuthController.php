@@ -7,6 +7,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AdminResource;
 use App\Models\Admin;
 use App\Models\Otp;
+use App\Traits\HandlesMultipart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 
@@ -14,6 +15,8 @@ use Illuminate\Support\Facades\Validator;
 
 class AuthController extends Controller
 {
+    use HandlesMultipart;
+
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -105,13 +108,14 @@ class AuthController extends Controller
     }
     public function updateProfile(Request $request)
     {
+        $this->handleMultipart($request);
         $admin = $request->user();
         $validator = Validator::make($request->all(), [
             'first_name' => 'required|string|max:191',
             'last_name'  => 'required|string|max:191',
             'phone'      => 'required|string|max:11|unique:users,phone,' . $admin->id,
             'email'      => 'nullable|email|unique:users,email,' . $admin->id,
-            'profile_image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'profile_image' => 'required|image|mimes:jpg,jpeg,png|max:2048',
         ]);
 
         if ($validator->fails()) {
@@ -123,7 +127,6 @@ class AuthController extends Controller
         $admin->last_name  = $request->last_name;
         $admin->phone      = $request->phone;
         $admin->email      = $request->email;
-
         // Handle profile image upload
         if ($request->hasFile('profile_image')) {
 
@@ -132,8 +135,8 @@ class AuthController extends Controller
                 unlink(storage_path('app/public/' . $admin->profile_image));
             }
 
-            $path = $request->file('profile_image')->store('admins/profile', 'public');
-            $admin->profile_image = $path;
+            $path = config('filesystems.disks.public.url') . '/' .$request->file('profile_image')->store('admins/profile', 'public');
+            $admin->personal_image = $path;
         }
 
         $admin->save();

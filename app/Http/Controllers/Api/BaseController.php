@@ -111,7 +111,7 @@ class BaseController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
-            $data['image'] = $this->storeUploadedImage($request->file('image'), 'trip_types', $trip_type->image);
+            $data['image'] = config('filesystems.disks.public.url') . '/' . $request->file('image')->store('trip_types', 'public');
         }
         // Ensure boolean-like inputs (e.g. the string "false") are converted to actual booleans
         if (array_key_exists('need_licence', $data)) {
@@ -128,57 +128,6 @@ class BaseController extends Controller
 
     /**
      * Store uploaded image safely, delete old image if provided, and return stored asset URL.
-     */
-    protected function storeUploadedImage($uploaded, string $folder, string $oldUrl = null)
-    {
-        if (! $uploaded instanceof UploadedFile) {
-            return null;
-        }
-
-        if (! $uploaded->isValid()) {
-            $errorCode = $uploaded->getError();
-            $errorMap = [
-                UPLOAD_ERR_INI_SIZE => 'The uploaded file exceeds the upload_max_filesize directive in php.ini.',
-                UPLOAD_ERR_FORM_SIZE => 'The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form.',
-                UPLOAD_ERR_PARTIAL => 'The uploaded file was only partially uploaded.',
-                UPLOAD_ERR_NO_FILE => 'No file was uploaded.',
-                UPLOAD_ERR_NO_TMP_DIR => 'Missing a temporary folder.',
-                UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk.',
-                UPLOAD_ERR_EXTENSION => 'A PHP extension stopped the file upload.',
-            ];
-
-            $message = $errorMap[$errorCode] ?? 'Unknown upload error.';
-
-            throw new HttpResponseException(response()->json([
-                'status' => false,
-                'message' => 'Image failed to upload',
-                'errors' => [
-                    'image' => [$message . ' (code: ' . $errorCode . ')']
-                ]
-            ], 422));
-        }
-
-        // delete old file if exists (handle both full URL and relative path)
-        if ($oldUrl) {
-            $storageSegment = '/storage/';
-            if (strpos($oldUrl, $storageSegment) !== false) {
-                $oldPath = substr($oldUrl, strpos($oldUrl, $storageSegment) + strlen($storageSegment));
-            } else {
-                $oldPath = ltrim($oldUrl, '/');
-            }
-            if (Storage::disk('public')->exists($oldPath)) {
-                Storage::disk('public')->delete($oldPath);
-            }
-        }
-
-        $filename = time() . '_' . uniqid() . '.' . $uploaded->getClientOriginalExtension();
-        $uploaded->storeAs($folder, $filename, 'public');
-
-        return Storage::disk('public')->url($folder . '/' . $filename);
-    }
-
-    /**
-     * Normalize boolean-like inputs to real booleans.
      */
     private function normalizeBoolean($value): bool
     {

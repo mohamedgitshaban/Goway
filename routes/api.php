@@ -137,7 +137,6 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::put('/{id}/restore', [AdminController::class, 'restore'])->middleware('admin.permission:admins.restore');
     });
 
-    // Roles management
     Route::prefix('roles')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\RoleController::class, 'index'])->middleware('admin.permission:roles.index');
         // new endpoint to fetch all permissions for role creation/edit
