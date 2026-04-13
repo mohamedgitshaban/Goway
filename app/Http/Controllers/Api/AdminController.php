@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AdminResource;
 use App\Models\Admin;
+use App\Traits\HandlesMultipart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -13,6 +14,7 @@ use Illuminate\Validation\Rule;
 
 class AdminController extends BaseUserController
 {
+    use HandlesMultipart;
     public function __construct()
     {
         $this->model = Admin::class;
@@ -69,6 +71,7 @@ class AdminController extends BaseUserController
     // Update admin basic fields and optionally sync permissions
     public function update(Request $request, $id)
     {
+        $this->handleMultipart($request);
         $admin = Admin::find($id);
         if (! $admin) {
             return response()->json(['message' => 'Admin not found'], 404);
