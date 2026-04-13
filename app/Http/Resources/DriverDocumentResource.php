@@ -12,7 +12,7 @@ class DriverDocumentResource extends JsonResource
             'age'       => $this->age,
             'status'    => $this->status,
             'reject_reason' => $this->reject_reason,
-
+            'birth_date' => $this->birth_date,
             // Driver info
             'driver' => [
                 'id'    => $this->driver->id,
