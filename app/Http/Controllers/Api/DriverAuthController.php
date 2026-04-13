@@ -78,14 +78,18 @@ class DriverAuthController extends Controller
         }
 
         $data = $validator->validated();
-
-        return DB::transaction(function () use ($data) {
+        if ($request->hasFile('personal_image')) {
+            $path = $request->file('personal_image')->store('drivers/personal', 'public');
+            $data['personal_image'] = $path;
+        }
+        return DB::transaction(function () use ($data, $request) {
             $user = Driver::create([
                 'first_name' => $data['first_name'],
                 'last_name' => $data['last_name'],
                 'phone' => $data['phone'],
                 'email' => $data['email'] ?? null,
                 'status' => 'pending_otp',
+                'personal_image' =>  $data['personal_image'] ?? null,
             ]);
             Otp::create(['user_id' => $user->id, 'code' => '12345', 'expires_at' => now()->addMinutes(10)]);
             return response()->json($user, 201);
