@@ -178,7 +178,7 @@ class DriverDocumentController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'age' => 'required|integer|min:10|max:80',
-
+            'birth_date' => 'required|date',
             'nid_front' => 'nullable|mimes:jpg,jpeg,png,pdf',
             'nid_back'  => 'nullable|mimes:jpg,jpeg,png,pdf',
             'birth_front'  => 'nullable|mimes:jpg,jpeg,png,pdf',
@@ -292,6 +292,7 @@ class DriverDocumentController extends Controller
             'status' => 'inreview',
             // ensure trip_type_id is stored with the document
             'trip_type_id' => $request->trip_type_id,
+            'birth_date' => $request->birth_date,
         ];
 
         foreach ($fields as $field) {
