@@ -108,8 +108,11 @@ class BaseUserController extends Controller
         }
         if ($user->status === 'disactive') {
             $user->status = 'active';
-        } else {
+        } elseif ($user->status === 'active') {
             $user->status = 'disactive';
+        }
+        else {
+            return response()->json(['message' => 'should be active user'], 400);
         }
         $user->save();
 
