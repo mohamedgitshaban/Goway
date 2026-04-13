@@ -186,8 +186,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
     });
 
     // Dashboard / analytics endpoint for admin
-    Route::get('/dashboard/stats', [\App\Http\Controllers\Api\AdminDashboardController::class, 'index'])
-        ->middleware('admin.permission:dashboard.view');
+    Route::get('/dashboard/stats', [\App\Http\Controllers\Api\AdminDashboardController::class, 'index']);
 
     Route::get('/offers', [\App\Http\Controllers\Api\OfferController::class, 'index'])->middleware('admin.permission:offers.index');
     Route::post('/offers', [\App\Http\Controllers\Api\OfferController::class, 'store'])->middleware('admin.permission:offers.store');
