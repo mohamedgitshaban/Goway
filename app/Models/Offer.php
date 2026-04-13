@@ -19,6 +19,7 @@ class Offer extends Model
         'user_type',
         'starts_at',
         'ends_at',
+        'image',
         'is_active',
         'trip_type_id',
     ];

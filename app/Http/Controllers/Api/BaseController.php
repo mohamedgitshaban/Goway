@@ -77,7 +77,7 @@ class BaseController extends Controller
             'need_licence' => 'required|in:true,false,1,0',
         ]);
         if ($request->hasFile('image')) {
-            $data['image'] = $this->storeUploadedImage($request->file('image'), 'trip_types');
+            $data['image'] = config('filesystems.disks.public.url') . '/' . $request->file('image')->store('trip_types', 'public');
         }
 
         // Normalize boolean-like input for create path as well

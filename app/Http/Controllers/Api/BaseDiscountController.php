@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Maatwebsite\Excel\Facades\Excel;
 use App\Exports\DiscountExport;
+use App\Traits\HandlesMultipart;
+use Illuminate\Support\Facades\Storage;
 
 abstract class BaseDiscountController extends Controller
 {
@@ -13,7 +15,7 @@ abstract class BaseDiscountController extends Controller
     protected $resource;
     protected $searchFields = [];
     protected $exportView = 'exports.discount';
-
+    use HandlesMultipart;
     abstract protected function rules($id = null);
 
     public function index(Request $request)
@@ -58,7 +60,7 @@ abstract class BaseDiscountController extends Controller
                     if ($field === 'trip_type') {
                         $q->orWhereHas('tripType', function ($t) use ($search) {
                             $t->where('name_en', 'LIKE', "%{$search}%")
-                              ->orWhere('name_ar', 'LIKE', "%{$search}%");
+                                ->orWhere('name_ar', 'LIKE', "%{$search}%");
                         });
                     } else {
                         $q->orWhere($field, 'LIKE', "%{$search}%");
@@ -82,6 +84,13 @@ abstract class BaseDiscountController extends Controller
         $data = $request->validate($this->rules());
         $item = $this->model::create($data);
 
+        // Handle uploaded file or base64 image
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('discounts', 'public');
+            $item->image = config('filesystems.disks.public.url') . '/' . $path;
+            $item->save();
+        }
+
         return new $this->resource($item);
     }
 
@@ -98,6 +107,8 @@ abstract class BaseDiscountController extends Controller
 
     public function update(Request $request, $id)
     {
+        $this->handleMultipart($request);
+
         $item = $this->model::find($id);
 
         if (!$item) {
@@ -108,6 +119,13 @@ abstract class BaseDiscountController extends Controller
 
         $item->update($data);
 
+        // Handle new uploaded file or base64 image; remove old file if exists
+        if ($request->hasFile('image')) {
+            $path = $request->file('image')->store('discounts', 'public');
+            $item->image = config('filesystems.disks.public.url') . '/' . $path;
+            $item->save();
+        }
+
         return new $this->resource($item);
     }
 
@@ -117,6 +135,11 @@ abstract class BaseDiscountController extends Controller
 
         if (!$item) {
             return response()->json(['message' => 'Item not found'], 404);
+        }
+
+        // delete image file if present
+        if (!empty($item->image) && Storage::disk('public')->exists($item->image)) {
+            Storage::disk('public')->delete($item->image);
         }
 
         $item->delete();

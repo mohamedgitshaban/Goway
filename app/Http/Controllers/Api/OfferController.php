@@ -23,6 +23,7 @@ class OfferController extends BaseDiscountController
             'title_ar'           => ($isUpdate ? 'sometimes|required' : 'required') . '|string|max:255',
             'title_en'           => ($isUpdate ? 'sometimes|required' : 'required') . '|string|max:255',
             'description_ar'     => 'nullable|string',
+            'image'              => ($isUpdate ? 'sometimes|nullable' : 'required') . '|image',
             'description_en'     => 'nullable|string',
             'discount_type'      => ($isUpdate ? 'sometimes|required' : 'required') . '|in:percentage,fixed',
             'discount_value'     => ($isUpdate ? 'sometimes|required' : 'required') . '|numeric|min:0',
