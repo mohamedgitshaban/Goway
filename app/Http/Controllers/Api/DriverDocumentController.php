@@ -8,6 +8,7 @@ use App\Models\Driver;
 use App\Models\DriverDocument;
 use App\Models\Trip;
 use App\Models\Vehicle;
+use App\Models\Wallet;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
@@ -358,7 +359,10 @@ class DriverDocumentController extends Controller
         ]);
 
         $doc->driver->update(['status' => 'active']);
-
+        Wallet::firstOrCreate(
+            ['user_id' => $doc->driver->id],
+            ['balance' => 0]
+        );
         return response()->json(['message' => 'Documents accepted']);
     }
 
