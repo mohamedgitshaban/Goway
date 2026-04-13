@@ -82,6 +82,9 @@ abstract class BaseDiscountController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate($this->rules());
+        if (isset($data['is_active'])) {
+            $data['is_active'] = filter_var($data['is_active'], FILTER_VALIDATE_BOOLEAN);
+        }
         $item = $this->model::create($data);
 
         // Handle uploaded file or base64 image
@@ -116,7 +119,9 @@ abstract class BaseDiscountController extends Controller
         }
 
         $data = $request->validate($this->rules($id));
-
+        if (isset($data['is_active'])) {
+            $data['is_active'] = filter_var($data['is_active'], FILTER_VALIDATE_BOOLEAN);
+        }
         $item->update($data);
 
         // Handle new uploaded file or base64 image; remove old file if exists
