@@ -44,12 +44,12 @@ class TripResource extends JsonResource
             'cancel_description' => $this->cancel_description,
 
             // 🔵 Relations
-            'client' => new ClientResource($this->whenLoaded('client')),
-            'driver' => new DriverResource($this->whenLoaded('driver')),
-            'trip_type' => new TripTypeResource($this->whenLoaded('tripType')),
-            'waypoints' => TripWaypointResource::collection($this->whenLoaded('waypoints')),
-            'offer' => new OfferResource($this->whenLoaded('offer')),
-            'coupon' => new CouponResource($this->whenLoaded('coupon')),
+            'client' => new ClientResource($this->client),
+            'driver' => new DriverResource($this->driver),
+            'trip_type' => new TripTypeResource($this->tripType),
+            'waypoints' => TripWaypointResource::collection($this->waypoints),
+            'offer' => new OfferResource($this->offer),
+            'coupon' => new CouponResource($this->coupon),
         ];
     }
 }
