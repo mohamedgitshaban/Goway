@@ -25,7 +25,7 @@ class AdminDashboardController extends Controller
         $completedTripsCount = Trip::where('status', 'completed')->count();
         $cancelledByClientTripsCount = Trip::where('status', 'cancelled_by_client')->count();
         $cancelledByDriverTripsCount = Trip::where('status', 'cancelled_by_driver')->count();
-        $activeOffersCount = Offer::where('status', 'active')->count();
+        $activeOffersCount = Offer::where('is_active', 1)->count();
         $activeCouponsCount = Coupon::where('ends_at', '>', now())->where('is_active', 1)->count();
         return response()->json([
             'active_drivers_count' => $activeDriversCount,
