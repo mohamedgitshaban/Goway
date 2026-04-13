@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\DriverDocumentResource;
 use App\Models\Driver;
 use App\Models\DriverDocument;
+use App\Models\Trip;
 use App\Models\Vehicle;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -226,6 +227,24 @@ class DriverDocumentController extends Controller
                     $validator->errors()->add('parent_nid_back', 'Parent NID back is required for drivers under 18.');
                 }
             }
+            if (!$request->hasFile('criminal_record')) {
+                $validator->errors()->add('criminal_record', 'Criminal record document is required.');
+            }
+             if (!$request->hasFile('vehicle_license_image') && Trip::find($request->trip_type_id)?->need_licence) {
+                $validator->errors()->add('vehicle_license_image', 'Vehicle license image is required.');
+            }
+             if (!$request->hasFile('car_front_image')) {
+                $validator->errors()->add('car_front_image', 'Car front image is required.');
+            }
+             if (!$request->hasFile('car_back_image')) {
+                $validator->errors()->add('car_back_image', 'Car back image is required.');
+            }
+             if (!$request->hasFile('car_left_image')) {
+                $validator->errors()->add('car_left_image', 'Car left image is required.');
+            }
+             if (!$request->hasFile('car_right_image')) {
+                $validator->errors()->add('car_right_image', 'Car right image is required.');
+            }
         });
 
         if ($validator->fails()) {
@@ -269,6 +288,7 @@ class DriverDocumentController extends Controller
         ];
 
         $data = [
+            'trip_type_id' => $request->trip_type_id,
             'age' => $age,
             'status' => 'inreview',
         ];
