@@ -154,7 +154,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::get('/', [TripTypeController::class, 'index'])->middleware('admin.permission:trip_types.index');
         Route::get('/export', [TripTypeController::class, 'export'])->middleware('admin.permission:trip_types.export');
         Route::post('/', [TripTypeController::class, 'store'])->middleware('admin.permission:trip_types.store');
-        Route::put('/{id}', [TripTypeController::class, 'update'])->middleware(['admin.permission:trip_types.update', 'parse.multipart']);
+        Route::put('/{id}', [TripTypeController::class, 'update'])->middleware(['admin.permission:trip_types.update']);
         Route::get('/{id}', [TripTypeController::class, 'show'])->middleware('admin.permission:trip_types.show');
         Route::put('/{id}/activate', [TripTypeController::class, 'activate'])->middleware('admin.permission:trip_types.activate');
         Route::put('/{id}/suspend', [TripTypeController::class, 'suspend'])->middleware('admin.permission:trip_types.suspend');

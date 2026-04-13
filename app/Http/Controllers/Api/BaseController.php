@@ -6,14 +6,13 @@ use App\Exports\UsersExport;
 use App\Http\Controllers\Controller;
 use App\Traits\HandlesMultipart;
 use Illuminate\Http\Request;
-use Illuminate\Http\UploadedFile;
-use Illuminate\Http\Exceptions\HttpResponseException;
-use Illuminate\Support\Facades\Storage;
+
 use Maatwebsite\Excel\Facades\Excel;
 
 class BaseController extends Controller
 {
-    use HandlesMultipart;
+        use HandlesMultipart;
+
     protected $model;
     protected $resource;
 
@@ -96,6 +95,7 @@ class BaseController extends Controller
     public function update($id, Request $request)
     {
         $this->handleMultipart($request);
+
         $trip_type = $this->model::find($id);
 
         if (! $trip_type) {
