@@ -33,6 +33,7 @@ class DriverResource extends JsonResource
                 'status'            => $doc->status,
                 'reject_reason'     => $doc->reject_reason,
             ] : null,
+                'vehicles' => VehicleResource::collection($this->vehicles),
         ];
     }
 }

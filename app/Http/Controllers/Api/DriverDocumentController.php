@@ -288,9 +288,10 @@ class DriverDocumentController extends Controller
         ];
 
         $data = [
-            'trip_type_id' => $request->trip_type_id,
             'age' => $age,
             'status' => 'inreview',
+            // ensure trip_type_id is stored with the document
+            'trip_type_id' => $request->trip_type_id,
         ];
 
         foreach ($fields as $field) {
