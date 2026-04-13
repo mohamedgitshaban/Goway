@@ -14,8 +14,11 @@ class DriverLocationController extends Controller
     {
         $driver = $request->user();
 
-        if (! $driver->isDriver()) {
+        if (! $driver->isDriver() ) {
             return response()->json(['status' => false, 'message' => 'Not a driver'], 403);
+        }
+        if ($driver->status !== 'active') {
+            return response()->json(['status' => false, 'message' => 'Driver not active'], 403);
         }
 
         $data = $request->validate([
