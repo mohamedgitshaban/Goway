@@ -108,9 +108,8 @@ class AdminController extends BaseUserController
                 // store new file and get relative path
                 $newPath = config('filesystems.disks.public.url') . '/' . $request->file('personal_image')->store('users', 'public');
                 // force attribute change by setting to null first, then new path
-                $admin->personal_image = null;
-                $admin->save();
                 $admin->personal_image = $newPath;
+                $admin->save();
             }
 
             $admin->save();
