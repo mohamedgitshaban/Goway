@@ -47,11 +47,11 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::put('/goOffline', [\App\Http\Controllers\Api\DriverAuthController::class, 'goOffline']);
         Route::put('/toggleonlinestatus', [\App\Http\Controllers\Api\DriverAuthController::class, 'toggleonlinestatus']);
     });
-    Route::prefix("vehicle")->group(function() {
+    Route::get('/offers', [\App\Http\Controllers\Api\OfferController::class, 'index']);
+    Route::prefix("vehicle")->group(function () {
         Route::get('{id}/brands', [VehicleModelController::class, 'brands']);
         Route::get('{id}/models', [VehicleModelController::class, 'brandModels']);
-        
-     });
+    });
     Route::prefix('documents')->group(function () {
         Route::get('trip_types', [\App\Http\Controllers\Api\TripTypeController::class, 'index']);
         Route::post('/upload', [\App\Http\Controllers\Api\DriverDocumentController::class, 'uploadDocuments']);
@@ -66,10 +66,7 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
     Route::post('/driver/trips/{trip}/negotiate', [DriverTripController::class, 'negotiate']);
     Route::post('/driver/trips/{trip}/rate', [DriverTripController::class, 'rateClient']);
     Route::get('/trips', [\App\Http\Controllers\Api\DriverTripController::class, 'index']);
-    
 });
-
-// Client-specific grouped endpoints
 Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('/logout', [\App\Http\Controllers\Api\ClientAuthController::class, 'logout']);
@@ -127,7 +124,9 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
     Route::prefix('admins')->group(function () {
         // create an admin and update admin
         Route::post('/', [AdminController::class, 'store'])->middleware('admin.permission:admins.store');
-        Route::put('/{id}', [AdminController::class, 'update'])->middleware('admin.permission:admins.update');
+        // use PUT for updates and parse multipart bodies via middleware
+        Route::put('/{id}', [AdminController::class, 'update'])
+            ->middleware(['admin.permission:admins.update']);
         Route::get('/', [AdminController::class, 'index'])->middleware('admin.permission:admins.index');
         Route::get('/export', [AdminController::class, 'export'])->middleware('admin.permission:admins.export');
         Route::get('/{id}', [AdminController::class, 'show'])->middleware('admin.permission:admins.show');
@@ -137,7 +136,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::delete('/{id}', [AdminController::class, 'destroy'])->middleware('admin.permission:admins.destroy');
         Route::put('/{id}/restore', [AdminController::class, 'restore'])->middleware('admin.permission:admins.restore');
     });
-    
+
     // Roles management
     Route::prefix('roles')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\RoleController::class, 'index'])->middleware('admin.permission:roles.index');
@@ -156,7 +155,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::get('/', [TripTypeController::class, 'index'])->middleware('admin.permission:trip_types.index');
         Route::get('/export', [TripTypeController::class, 'export'])->middleware('admin.permission:trip_types.export');
         Route::post('/', [TripTypeController::class, 'store'])->middleware('admin.permission:trip_types.store');
-        Route::put('/{id}', [TripTypeController::class, 'update'])->middleware('admin.permission:trip_types.update');
+        Route::put('/{id}', [TripTypeController::class, 'update'])->middleware(['admin.permission:trip_types.update', 'parse.multipart']);
         Route::get('/{id}', [TripTypeController::class, 'show'])->middleware('admin.permission:trip_types.show');
         Route::put('/{id}/activate', [TripTypeController::class, 'activate'])->middleware('admin.permission:trip_types.activate');
         Route::put('/{id}/suspend', [TripTypeController::class, 'suspend'])->middleware('admin.permission:trip_types.suspend');
@@ -191,4 +190,3 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
 // Fallback to serve storage files via API if public/storage symlink is not available.
 // Usage: GET /storage/{any/path/to/file}
 // NOTE: Preferred solution is to run `php artisan storage:link` so webserver serves /storage/* directly.
-

@@ -30,6 +30,7 @@ class OfferController extends BaseDiscountController
             'starts_at'          => ($isUpdate ? 'sometimes|required' : 'required') . '|date',
             'ends_at'            => ($isUpdate ? 'sometimes|required' : 'required') . '|date|after_or_equal:starts_at',
             'is_active'          => 'boolean',
+            'user_type'          => ($isUpdate ? 'sometimes|required' : 'required') . '|in:driver,client',
             'trip_type_id'       => ($isUpdate ? 'sometimes|required' : 'required') .'|exists:trip_types,id',
         ];
     }

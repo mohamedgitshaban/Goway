@@ -42,6 +42,15 @@ abstract class BaseDiscountController extends Controller
             $query->where('is_active', $status);
         }
 
+        // If authenticated user is a driver, return only driver-targeted items
+        $authUser = auth()->user();
+        if ($authUser->isDriver()) {
+            $query->where('user_type', 'driver');
+        }
+        if ($authUser->isClient()) {
+            $query->where('user_type', 'client');
+        }
+
         // Search
         if ($search && count($this->searchFields)) {
             $query->where(function ($q) use ($search) {

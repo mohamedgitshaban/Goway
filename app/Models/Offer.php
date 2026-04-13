@@ -16,6 +16,7 @@ class Offer extends Model
         'discount_type',
         'discount_value',
         'max_discount_amount',
+        'user_type',
         'starts_at',
         'ends_at',
         'is_active',
