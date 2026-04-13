@@ -179,7 +179,7 @@ class DriverDocumentController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'age' => 'required|integer|min:10|max:80',
-            // 'birth_date' => 'required|date',
+            'birth_date' => 'required|date',
             'nid_front' => 'nullable|mimes:jpg,jpeg,png,pdf',
             'nid_back'  => 'nullable|mimes:jpg,jpeg,png,pdf',
             'birth_front'  => 'nullable|mimes:jpg,jpeg,png,pdf',
@@ -196,10 +196,10 @@ class DriverDocumentController extends Controller
             'year' => 'required|integer|min:1900|max:' . date('Y'),
             'plate_number' => 'required|string',
             'vehicle_license_image' => 'required|mimes:jpg,jpeg,png,pdf',
-            'car_front_image' => 'nullable|mimes:jpg,jpeg,png,pdf',
-            'car_back_image' => 'nullable|mimes:jpg,jpeg,png,pdf',
-            'car_left_image' => 'nullable|mimes:jpg,jpeg,png,pdf',
-            'car_right_image' => 'nullable|mimes:jpg,jpeg,png,pdf',
+            'car_front_image' => 'required|mimes:jpg,jpeg,png,pdf',
+            'car_back_image' => 'required|mimes:jpg,jpeg,png,pdf',
+            'car_left_image' => 'required|mimes:jpg,jpeg,png,pdf',
+            'car_right_image' => 'required|mimes:jpg,jpeg,png,pdf',
         ]);
 
         $validator->after(function ($validator) use ($request) {
@@ -234,18 +234,18 @@ class DriverDocumentController extends Controller
              if (!$request->hasFile('vehicle_license_image') && Trip::find($request->trip_type_id)?->need_licence) {
                 $validator->errors()->add('vehicle_license_image', 'Vehicle license image is required.');
             }
-            //  if (!$request->hasFile('car_front_image')) {
-            //     $validator->errors()->add('car_front_image', 'Car front image is required.');
-            // }
-            //  if (!$request->hasFile('car_back_image')) {
-            //     $validator->errors()->add('car_back_image', 'Car back image is required.');
-            // }
-            //  if (!$request->hasFile('car_left_image')) {
-            //     $validator->errors()->add('car_left_image', 'Car left image is required.');
-            // }
-            //  if (!$request->hasFile('car_right_image')) {
-            //     $validator->errors()->add('car_right_image', 'Car right image is required.');
-            // }
+             if (!$request->hasFile('car_front_image')) {
+                $validator->errors()->add('car_front_image', 'Car front image is required.');
+            }
+             if (!$request->hasFile('car_back_image')) {
+                $validator->errors()->add('car_back_image', 'Car back image is required.');
+            }
+             if (!$request->hasFile('car_left_image')) {
+                $validator->errors()->add('car_left_image', 'Car left image is required.');
+            }
+             if (!$request->hasFile('car_right_image')) {
+                $validator->errors()->add('car_right_image', 'Car right image is required.');
+            }
         });
 
         if ($validator->fails()) {
