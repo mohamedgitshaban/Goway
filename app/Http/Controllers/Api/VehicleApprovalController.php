@@ -53,11 +53,6 @@ class VehicleApprovalController extends Controller
         $vehicle->rejection_reason = null;
         $vehicle->save();
 
-        // Optionally activate the driver if relation exists
-        if ($vehicle->driver) {
-            $vehicle->driver->status = 'active';
-            $vehicle->driver->save();
-        }
 
         return response()->json([
             'message' => 'Vehicle accepted successfully',

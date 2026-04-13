@@ -17,7 +17,7 @@ class WalletController extends Controller
         $limit   = $request->input('limit', 10);
         $search  = $request->input('search');
         $sortBy  = $request->input('sort_by', 'id');
-        $sortDir = $request->input('sort_dir', 'asc');
+        $sortDir = $request->input('sort_dir', 'desc');
 
         $query = Wallet::with('user');
 
