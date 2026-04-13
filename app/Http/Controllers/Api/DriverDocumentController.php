@@ -303,7 +303,7 @@ class DriverDocumentController extends Controller
             'color' => $request->color,
             'year' => $request->year,
             'plate_number' => $request->plate_number,
-            'status' => 'inreview',
+            'status' => 'pending',
             'isactive' => true,
         ];
 
