@@ -172,6 +172,11 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::post('/{id}/accept', [\App\Http\Controllers\Api\DriverDocumentController::class, 'accept'])->middleware('admin.permission:documents.accept');
         Route::post('/{id}/reject', [\App\Http\Controllers\Api\DriverDocumentController::class, 'reject'])->middleware('admin.permission:documents.reject');
     });
+    Route::prefix('vehicles')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\VehicleApprovalController::class, 'index'])->middleware('admin.permission:documents.index');
+        Route::post('/{id}/accept', [\App\Http\Controllers\Api\VehicleApprovalController::class, 'accept'])->middleware('admin.permission:documents.accept');
+        Route::post('/{id}/reject', [\App\Http\Controllers\Api\VehicleApprovalController::class, 'reject'])->middleware('admin.permission:documents.reject');
+    });
     Route::get('/offers', [\App\Http\Controllers\Api\OfferController::class, 'index'])->middleware('admin.permission:offers.index');
     Route::post('/offers', [\App\Http\Controllers\Api\OfferController::class, 'store'])->middleware('admin.permission:offers.store');
     Route::get('/offers/{offer}', [\App\Http\Controllers\Api\OfferController::class, 'show'])->middleware('admin.permission:offers.show');
