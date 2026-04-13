@@ -66,6 +66,13 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
     Route::post('/driver/trips/{trip}/negotiate', [DriverTripController::class, 'negotiate']);
     Route::post('/driver/trips/{trip}/rate', [DriverTripController::class, 'rateClient']);
     Route::get('/trips', [\App\Http\Controllers\Api\DriverTripController::class, 'index']);
+
+    // driver vehicle management (list, create, activate)
+    Route::prefix('vehicles')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\DriverVehicleController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\Api\DriverVehicleController::class, 'store']);
+        Route::post('/{id}/activate', [\App\Http\Controllers\Api\DriverVehicleController::class, 'activate']);
+    });
 });
 Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(function () {
     Route::prefix('auth')->group(function () {
@@ -177,6 +184,11 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::post('/{id}/accept', [\App\Http\Controllers\Api\VehicleApprovalController::class, 'accept'])->middleware('admin.permission:documents.accept');
         Route::post('/{id}/reject', [\App\Http\Controllers\Api\VehicleApprovalController::class, 'reject'])->middleware('admin.permission:documents.reject');
     });
+
+    // Dashboard / analytics endpoint for admin
+    Route::get('/dashboard/stats', [\App\Http\Controllers\Api\AdminDashboardController::class, 'index'])
+        ->middleware('admin.permission:dashboard.view');
+
     Route::get('/offers', [\App\Http\Controllers\Api\OfferController::class, 'index'])->middleware('admin.permission:offers.index');
     Route::post('/offers', [\App\Http\Controllers\Api\OfferController::class, 'store'])->middleware('admin.permission:offers.store');
     Route::get('/offers/{offer}', [\App\Http\Controllers\Api\OfferController::class, 'show'])->middleware('admin.permission:offers.show');
