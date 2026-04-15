@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
+use App\Http\Resources\ProfileResource;
 
 class ProfileController extends Controller
 {
@@ -11,15 +12,14 @@ class ProfileController extends Controller
     {
         $user = $request->user();
 
-        // Load related data depending on usertype
-        $relations = ['wallets'];
+        $relations = ['wallet'];
         if ($user->isDriver()) {
             $relations[] = 'vehicles';
         }
 
         $user->load($relations);
 
-        return response()->json($user);
+        return new ProfileResource($user);
     }
 
     public function update(Request $request)

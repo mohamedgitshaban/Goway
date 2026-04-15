@@ -17,7 +17,10 @@ class ClientResource extends JsonResource
             'email'      => $this->email,
             'usertype'   => $this->usertype,
             'personal_image'  => $this->personal_image,
-            'wallet_balance' => $this->wallet ? $this->wallet->balance : 0,
+            'wallet' => $this->wallet ? [
+                'id' => $this->wallet->id,
+                'balance' => (float) $this->wallet->balance,
+            ] : null,
             'status'     => $this->status,
         ];
     }

@@ -20,7 +20,10 @@ class DriverResource extends JsonResource
             'status'     => $this->status,
             'is_online'  => $this->is_online,
             'personal_image'  => $this->personal_image,
-            'wallet_balance' => $this->wallet ? $this->wallet->balance : 0,
+            'wallet' => $this->wallet ? [
+                'id' => $this->wallet->id,
+                'balance' => (float) $this->wallet->balance,
+            ] : null,
             'documents' => $doc ? [
                 'id'                => $doc->id,
                 'age'               => $doc->age,

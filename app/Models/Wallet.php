@@ -12,6 +12,9 @@ class Wallet extends Model
     
     protected $fillable = ['user_id', 'balance'];
 
+    protected $casts = [
+        'balance' => 'float'
+    ];
     public function scopeFilter($query, $filters)
 {
     return $query
