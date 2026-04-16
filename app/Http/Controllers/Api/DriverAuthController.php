@@ -79,7 +79,7 @@ class DriverAuthController extends Controller
 
         $data = $validator->validated();
         if ($request->hasFile('personal_image')) {
-            $path = $request->file('personal_image')->store('drivers/personal', 'public');
+            $path = config('filesystems.disks.public.url') . '/' .$request->file('personal_image')->store('drivers/personal', 'public');
             $data['personal_image'] = $path;
         }
         return DB::transaction(function () use ($data, $request) {
@@ -155,12 +155,15 @@ class DriverAuthController extends Controller
     {
         $driver = $request->user();
 
+        $personalImageRules = $request->hasFile('personal_image')
+            ? 'sometimes|file|image|max:5120'
+            : 'sometimes|nullable|string|max:2048';
         $validator = Validator::make($request->all(), [
             'first_name' => 'required|string|max:191',
             'last_name'  => 'required|string|max:191',
             'phone'      => 'required|string|max:11|unique:users,phone,' . $driver->id,
             'email'      => 'nullable|email|unique:users,email,' . $driver->id,
-            'profile_image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'profile_image' => $personalImageRules,
         ]);
 
         if ($validator->fails()) {

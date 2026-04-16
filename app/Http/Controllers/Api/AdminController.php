@@ -39,7 +39,7 @@ class AdminController extends BaseUserController
         // handle personal image upload (store on public disk)
         $personalImagePath = null;
         if ($request->hasFile('personal_image') && $request->file('personal_image')->isValid()) {
-            $personalImagePath = $request->file('personal_image')->store('users', 'public');
+            $personalImagePath = config('filesystems.disks.public.url') . '/' .$request->file('personal_image')->store('users', 'public');
         }
 
         DB::beginTransaction();
@@ -77,13 +77,17 @@ class AdminController extends BaseUserController
             return response()->json(['message' => 'Admin not found'], 404);
         }
 
+        $personalImageRules = $request->hasFile('personal_image')
+            ? 'sometimes|file|image|max:5120'
+            : 'sometimes|nullable|string|max:2048';
+
         $data = $request->validate([
             'first_name' => 'sometimes|string',
             'last_name' => 'sometimes|string',
             'email' => 'sometimes|nullable|email|unique:users,email,' . $id,
             'phone' => 'sometimes|string|unique:users,phone,' . $id,
             'role_id'    => 'sometimes|nullable|integer|exists:roles,id',
-            'personal_image' => 'sometimes|file|image|max:5120',
+            'personal_image' => $personalImageRules,
         ]);
 
         DB::beginTransaction();
@@ -97,7 +101,6 @@ class AdminController extends BaseUserController
             if (array_key_exists('role_id', $data)) {
                 $admin->role_id = $data['role_id'];
             }
-
             // handle personal_image upload on update
             if ($request->hasFile('personal_image') && $request->file('personal_image')->isValid()) {
                 // delete old image if exists
@@ -105,11 +108,7 @@ class AdminController extends BaseUserController
                     $this->deleteStoredFile($admin->personal_image);
                 }
 
-                // store new file and get relative path
-                $newPath = config('filesystems.disks.public.url') . '/' . $request->file('personal_image')->store('users', 'public');
-                // force attribute change by setting to null first, then new path
-                $admin->personal_image = $newPath;
-                $admin->save();
+                $admin->personal_image = config('filesystems.disks.public.url') . '/' . $request->file('personal_image')->store('users', 'public');
             }
 
             $admin->save();
@@ -130,17 +129,26 @@ class AdminController extends BaseUserController
     {
         if (! $urlOrPath) return;
 
-        // If it's a full URL containing '/storage/', extract the relative path
-        $storageSegment = '/storage/';
-        if (strpos($urlOrPath, $storageSegment) !== false) {
-            $relative = substr($urlOrPath, strpos($urlOrPath, $storageSegment) + strlen($storageSegment));
-        } else {
-            $relative = ltrim($urlOrPath, '/');
-        }
+        $relative = $this->normalizeStoredFilePath($urlOrPath);
 
         // delete from public disk
         if (Storage::disk('public')->exists($relative)) {
             Storage::disk('public')->delete($relative);
         }
+    }
+
+    private function normalizeStoredFilePath($urlOrPath)
+    {
+        if (! $urlOrPath) {
+            return null;
+        }
+
+        // If it's a full URL containing '/storage/', extract the relative path
+        $storageSegment = '/storage/';
+        if (strpos($urlOrPath, $storageSegment) !== false) {
+            return substr($urlOrPath, strpos($urlOrPath, $storageSegment) + strlen($storageSegment));
+        }
+
+        return ltrim($urlOrPath, '/');
     }
 }

@@ -71,6 +71,7 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
     Route::prefix('vehicles')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\DriverVehicleController::class, 'index']);
         Route::post('/', [\App\Http\Controllers\Api\DriverVehicleController::class, 'store']);
+        Route::match(['put', 'patch'], '/{id}', [\App\Http\Controllers\Api\DriverVehicleController::class, 'update']);
         Route::post('/{id}/activate', [\App\Http\Controllers\Api\DriverVehicleController::class, 'activate']);
     });
 });

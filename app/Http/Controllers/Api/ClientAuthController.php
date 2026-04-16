@@ -8,7 +8,9 @@ use App\Models\Client;
 use App\Models\User;
 use App\Models\Otp;
 use App\Models\Wallet;
+use App\Traits\HandlesMultipart;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
@@ -16,6 +18,8 @@ use Illuminate\Support\Facades\DB;
 
 class ClientAuthController extends Controller
 {
+    use HandlesMultipart;
+
     public function send_otp(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -132,46 +136,72 @@ class ClientAuthController extends Controller
 
     return response()->json(new ClientResource($client));
 }
-public function updateProfile(Request $request)
-{
-    $client = $request->user();
+    public function updateProfile(Request $request)
+    {
+        $this->handleMultipart($request);
+        $client = $request->user();
 
-    $validator = Validator::make($request->all(), [
-        'first_name' => 'required|string|max:191',
-        'last_name'  => 'required|string|max:191',
-        'phone'      => 'required|string|max:11|unique:users,phone,' . $client->id,
-        'email'      => 'nullable|email|unique:users,email,' . $client->id,
-        'profile_image' => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
-    ]);
+        $profileImageRules = $request->hasFile('profile_image')
+            ? 'sometimes|file|image|mimes:jpg,jpeg,png|max:2048'
+            : 'sometimes|nullable|string|max:2048';
 
-    if ($validator->fails()) {
-        return response()->json(['errors' => $validator->errors()], 422);
-    }
+        $validator = Validator::make($request->all(), [
+            'first_name' => 'required|string|max:191',
+            'last_name'  => 'required|string|max:191',
+            'phone'      => 'required|string|max:11|unique:users,phone,' . $client->id,
+            'email'      => 'nullable|email|unique:users,email,' . $client->id,
+            'profile_image' => $profileImageRules,
+        ]);
 
-    // Update basic fields
-    $client->first_name = $request->first_name;
-    $client->last_name  = $request->last_name;
-    $client->phone      = $request->phone;
-    $client->email      = $request->email;
-
-    // Handle profile image upload
-    if ($request->hasFile('profile_image')) {
-
-        // delete old image if exists
-        if ($client->profile_image && file_exists(storage_path('app/public/' . $client->profile_image))) {
-            unlink(storage_path('app/public/' . $client->profile_image));
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()], 422);
         }
 
-        $path = $request->file('profile_image')->store('clients/profile', 'public');
-        $client->profile_image = $path;
+        $data = $validator->validated();
+
+        $client->first_name = $request->first_name;
+        $client->last_name  = $request->last_name;
+        $client->phone      = $request->phone;
+        $client->email      = $request->email;
+        if ($request->hasFile('profile_image') && $request->file('profile_image')->isValid()) {
+            // delete old image if exists
+            if ($client->personal_image) {
+                $this->deleteStoredFile($client->personal_image);
+            }
+
+            $client->personal_image = config('filesystems.disks.public.url') . '/' . $request->file('profile_image')->store('clients/profile', 'public');
+        }
+
+
+        $client->save();
+
+        return response()->json([
+            'message' => 'Profile updated successfully',
+            'user'    => new ClientResource($client),
+        ]);
     }
 
-    $client->save();
+    private function deleteStoredFile($urlOrPath): void
+    {
+        $relativePath = $this->normalizeStoredFilePath($urlOrPath);
 
-    return response()->json([
-        'message' => 'Profile updated successfully',
-        'user'    => new ClientResource($client),
-    ]);
-}
+        if ($relativePath && Storage::disk('public')->exists($relativePath)) {
+            Storage::disk('public')->delete($relativePath);
+        }
+    }
+
+    private function normalizeStoredFilePath($urlOrPath): ?string
+    {
+        if (! $urlOrPath) {
+            return null;
+        }
+
+        $storageSegment = '/storage/';
+        if (strpos($urlOrPath, $storageSegment) !== false) {
+            return substr($urlOrPath, strpos($urlOrPath, $storageSegment) + strlen($storageSegment));
+        }
+
+        return ltrim($urlOrPath, '/');
+    }
 
 }

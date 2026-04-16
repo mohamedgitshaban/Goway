@@ -6,12 +6,13 @@ use App\Exports\UsersExport;
 use App\Http\Controllers\Controller;
 use App\Traits\HandlesMultipart;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
 use Maatwebsite\Excel\Facades\Excel;
 
 class BaseController extends Controller
 {
-        use HandlesMultipart;
+    use HandlesMultipart;
 
     protected $model;
     protected $resource;
@@ -43,7 +44,7 @@ class BaseController extends Controller
             $query->where('status', $status);
         }
         $query->orderBy($sortBy, $sortDir);
-        
+
         // safely check if authenticated user is a driver
         $authUser = auth()->user();
         if ($authUser && method_exists($authUser, 'isDriver') && $authUser->isDriver()) {
@@ -69,14 +70,17 @@ class BaseController extends Controller
         $data = $request->validate([
             'name_en' => 'required|string',
             'name_ar' => 'required|string',
-            'image' => 'sometimes|nullable|image',
+            'image' => $request->hasFile('image')
+                ? 'required|file|image|max:5120'
+                : 'required|string|max:2048',
             'price_per_km' => 'required|numeric',
             'max_distance' => 'required|numeric',
             'profit_margin' => 'required|numeric',
             'need_licence' => 'required|in:true,false,1,0',
         ]);
+
         if ($request->hasFile('image')) {
-            $data['image'] = config('filesystems.disks.public.url') . '/' . $request->file('image')->store('trip_types', 'public');
+            $data['image'] = config('filesystems.disks.public.url') . '/' .$request->file('image')->store('trip_types', 'public');
         }
 
         // Normalize boolean-like input for create path as well
@@ -105,8 +109,9 @@ class BaseController extends Controller
         $data = $request->validate([
             'name_en' => 'sometimes|required|string',
             'name_ar' => 'sometimes|required|string',
-            // allow image to be included in partial updates (PATCH or POST + _method=PUT)
-            'image' => 'sometimes|nullable|image',
+            'image' => $request->hasFile('image')
+                ? 'sometimes|required|file|image|max:5120'
+                : 'sometimes|nullable|string|max:2048',
             'max_distance' => 'sometimes|required|numeric',
             'price_per_km' => 'sometimes|required|numeric',
             'profit_margin' => 'sometimes|required|numeric',
@@ -115,8 +120,10 @@ class BaseController extends Controller
         ]);
 
         if ($request->hasFile('image')) {
+            $this->deleteStoredFile($trip_type->image);
             $data['image'] = config('filesystems.disks.public.url') . '/' . $request->file('image')->store('trip_types', 'public');
         }
+
         // Ensure boolean-like inputs (e.g. the string "false") are converted to actual booleans
         if (array_key_exists('need_licence', $data)) {
             $data['need_licence'] = $this->normalizeBoolean($request->input('need_licence'));
@@ -140,6 +147,29 @@ class BaseController extends Controller
             return (bool) $value;
         }
         return $normalized;
+    }
+
+    private function deleteStoredFile($urlOrPath): void
+    {
+        $relativePath = $this->normalizeStoredFilePath($urlOrPath);
+
+        if ($relativePath && Storage::disk('public')->exists($relativePath)) {
+            Storage::disk('public')->delete($relativePath);
+        }
+    }
+
+    private function normalizeStoredFilePath($urlOrPath): ?string
+    {
+        if (! $urlOrPath) {
+            return null;
+        }
+
+        $storageSegment = '/storage/';
+        if (strpos($urlOrPath, $storageSegment) !== false) {
+            return substr($urlOrPath, strpos($urlOrPath, $storageSegment) + strlen($storageSegment));
+        }
+
+        return ltrim($urlOrPath, '/');
     }
 
     /**

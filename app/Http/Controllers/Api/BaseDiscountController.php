@@ -85,15 +85,15 @@ abstract class BaseDiscountController extends Controller
         if (isset($data['is_active'])) {
             $data['is_active'] = filter_var($data['is_active'], FILTER_VALIDATE_BOOLEAN);
         }
+
+        unset($data['image']);
+
         $item = $this->model::create($data);
 
-        // Handle uploaded file or base64 image
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('discounts', 'public');
-            $item->image = config('filesystems.disks.public.url') . '/' . $path;
+            $item->image = config('filesystems.disks.public.url') . '/' .$request->file('image')->store('discounts', 'public');
             $item->save();
         }
-
         return new $this->resource($item);
     }
 
@@ -122,12 +122,14 @@ abstract class BaseDiscountController extends Controller
         if (isset($data['is_active'])) {
             $data['is_active'] = filter_var($data['is_active'], FILTER_VALIDATE_BOOLEAN);
         }
+
+        unset($data['image']);
+
         $item->update($data);
 
-        // Handle new uploaded file or base64 image; remove old file if exists
         if ($request->hasFile('image')) {
-            $path = $request->file('image')->store('discounts', 'public');
-            $item->image = config('filesystems.disks.public.url') . '/' . $path;
+            $this->deleteStoredFile($item->image);
+            $item->image = config('filesystems.disks.public.url') . '/' . $request->file('image')->store('discounts', 'public');
             $item->save();
         }
 
@@ -142,10 +144,7 @@ abstract class BaseDiscountController extends Controller
             return response()->json(['message' => 'Item not found'], 404);
         }
 
-        // delete image file if present
-        if (!empty($item->image) && Storage::disk('public')->exists($item->image)) {
-            Storage::disk('public')->delete($item->image);
-        }
+        $this->deleteStoredFile($item->image);
 
         $item->delete();
 
@@ -163,5 +162,28 @@ abstract class BaseDiscountController extends Controller
             new DiscountExport($items, $this->exportView),
             $fileName
         );
+    }
+
+    protected function deleteStoredFile($urlOrPath)
+    {
+        $relativePath = $this->normalizeStoredFilePath($urlOrPath);
+
+        if ($relativePath && Storage::disk('public')->exists($relativePath)) {
+            Storage::disk('public')->delete($relativePath);
+        }
+    }
+
+    protected function normalizeStoredFilePath($urlOrPath)
+    {
+        if (! $urlOrPath) {
+            return null;
+        }
+
+        $storageSegment = '/storage/';
+        if (strpos($urlOrPath, $storageSegment) !== false) {
+            return substr($urlOrPath, strpos($urlOrPath, $storageSegment) + strlen($storageSegment));
+        }
+
+        return ltrim($urlOrPath, '/');
     }
 }

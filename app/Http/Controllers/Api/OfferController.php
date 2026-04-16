@@ -18,12 +18,15 @@ class OfferController extends BaseDiscountController
     protected function rules($id = null)
     {
         $isUpdate = $id !== null;
+        $imageRules = request()->hasFile('image')
+            ? 'required|file|image|max:5120'
+            : 'required|string|max:2048';
 
         return [
             'title_ar'           => ($isUpdate ? 'sometimes|required' : 'required') . '|string|max:255',
             'title_en'           => ($isUpdate ? 'sometimes|required' : 'required') . '|string|max:255',
             'description_ar'     => 'nullable|string',
-            'image'              => ('nullable') . '|image',
+            'image'              => $imageRules,
             'description_en'     => 'nullable|string',
             'discount_type'      => ($isUpdate ? 'sometimes|required' : 'required') . '|in:percentage,fixed',
             'discount_value'     => ($isUpdate ? 'sometimes|required' : 'required') . '|numeric|min:0',

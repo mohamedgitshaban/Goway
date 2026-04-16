@@ -177,73 +177,83 @@ class DriverDocumentController extends Controller
      * --------------------------------------------------------- */
     private function validateRequest(Request $request)
     {
+        $existingDocument = optional(auth()->user())->driverDocument;
+        $existingVehicle = Vehicle::where('driver_id', optional(auth()->user())->id)->first();
+
         $validator = Validator::make($request->all(), [
             'age' => 'required|integer|min:10|max:80',
             'birth_date' => 'required|date',
-            'nid_front' => 'nullable|mimes:jpg,jpeg,png,pdf',
-            'nid_back'  => 'nullable|mimes:jpg,jpeg,png,pdf',
-            'birth_front'  => 'nullable|mimes:jpg,jpeg,png,pdf',
-
-            'parent_nid_front' => 'nullable|mimes:jpg,jpeg,png,pdf',
-            'parent_nid_back'  => 'nullable|mimes:jpg,jpeg,png,pdf',
-
-            'license_image' => 'nullable|mimes:jpg,jpeg,png,pdf',
-            'criminal_record' => 'required|mimes:jpg,jpeg,png,pdf',
+            'nid_front' => $this->fileOrPathRule($request, 'nid_front'),
+            'nid_back'  => $this->fileOrPathRule($request, 'nid_back'),
+            'birth_front'  => $this->fileOrPathRule($request, 'birth_front'),
+            'parent_nid_front' => $this->fileOrPathRule($request, 'parent_nid_front'),
+            'parent_nid_back'  => $this->fileOrPathRule($request, 'parent_nid_back'),
+            'license_image' => $this->fileOrPathRule($request, 'license_image'),
+            'criminal_record' => $this->fileOrPathRule($request, 'criminal_record'),
             'trip_type_id' => 'required|exists:trip_types,id',
             'vehicle_brand_id' => 'required|integer|exists:vehicle_brands,id',
             'vehicle_model_id' => 'required|integer|exists:vehicle_models,id',
             'color' => 'required|string',
             'year' => 'required|integer|min:1900|max:' . date('Y'),
             'plate_number' => 'required|string',
-            'vehicle_license_image' => 'required|mimes:jpg,jpeg,png,pdf',
-            'car_front_image' => 'required|mimes:jpg,jpeg,png,pdf',
-            'car_back_image' => 'required|mimes:jpg,jpeg,png,pdf',
-            'car_left_image' => 'required|mimes:jpg,jpeg,png,pdf',
-            'car_right_image' => 'required|mimes:jpg,jpeg,png,pdf',
+            'vehicle_license_image' => $this->fileOrPathRule($request, 'vehicle_license_image'),
+            'car_front_image' => $this->fileOrPathRule($request, 'car_front_image'),
+            'car_back_image' => $this->fileOrPathRule($request, 'car_back_image'),
+            'car_left_image' => $this->fileOrPathRule($request, 'car_left_image'),
+            'car_right_image' => $this->fileOrPathRule($request, 'car_right_image'),
         ]);
 
-        $validator->after(function ($validator) use ($request) {
+        $validator->after(function ($validator) use ($request, $existingDocument, $existingVehicle) {
 
             $age = (int) $request->age;
 
             // If age >= 18 → driver NID required
             if ($age >= 18) {
-                if (!$request->hasFile('nid_front')) {
+                if (! $this->hasUploadedFileOrPath($request, 'nid_front', $existingDocument?->nid_front)) {
                     $validator->errors()->add('nid_front', 'Driver NID front is required for age 18 or above.');
                 }
-                if (!$request->hasFile('nid_back')) {
+                if (! $this->hasUploadedFileOrPath($request, 'nid_back', $existingDocument?->nid_back)) {
                     $validator->errors()->add('nid_back', 'Driver NID back is required for age 18 or above.');
                 }
             }
 
             // If age < 18 → parent NID required
             if ($age < 18) {
-                if (!$request->hasFile('birth_front')) {
+                if (! $this->hasUploadedFileOrPath($request, 'birth_front', $existingDocument?->birth_front)) {
                     $validator->errors()->add('birth_front', 'Birth certificate front is required for drivers under 18.');
                 }
-                if (!$request->hasFile('parent_nid_front')) {
+                if (! $this->hasUploadedFileOrPath($request, 'parent_nid_front', $existingDocument?->parent_nid_front)) {
                     $validator->errors()->add('parent_nid_front', 'Parent NID front is required for drivers under 18.');
                 }
-                if (!$request->hasFile('parent_nid_back')) {
+                if (! $this->hasUploadedFileOrPath($request, 'parent_nid_back', $existingDocument?->parent_nid_back)) {
                     $validator->errors()->add('parent_nid_back', 'Parent NID back is required for drivers under 18.');
                 }
             }
-            if (!$request->hasFile('criminal_record')) {
+
+            if (! $this->hasUploadedFileOrPath($request, 'criminal_record', $existingDocument?->criminal_record)) {
                 $validator->errors()->add('criminal_record', 'Criminal record document is required.');
             }
-             if (!$request->hasFile('vehicle_license_image') && Trip::find($request->trip_type_id)?->need_licence) {
+
+            if (
+                Trip::find($request->trip_type_id)?->need_licence &&
+                ! $this->hasUploadedFileOrPath($request, 'vehicle_license_image', $existingVehicle?->vehicle_license_image)
+            ) {
                 $validator->errors()->add('vehicle_license_image', 'Vehicle license image is required.');
             }
-             if (!$request->hasFile('car_front_image')) {
+
+            if (! $this->hasUploadedFileOrPath($request, 'car_front_image', $existingVehicle?->car_front_image)) {
                 $validator->errors()->add('car_front_image', 'Car front image is required.');
             }
-             if (!$request->hasFile('car_back_image')) {
+
+            if (! $this->hasUploadedFileOrPath($request, 'car_back_image', $existingVehicle?->car_back_image)) {
                 $validator->errors()->add('car_back_image', 'Car back image is required.');
             }
-             if (!$request->hasFile('car_left_image')) {
+
+            if (! $this->hasUploadedFileOrPath($request, 'car_left_image', $existingVehicle?->car_left_image)) {
                 $validator->errors()->add('car_left_image', 'Car left image is required.');
             }
-             if (!$request->hasFile('car_right_image')) {
+
+            if (! $this->hasUploadedFileOrPath($request, 'car_right_image', $existingVehicle?->car_right_image)) {
                 $validator->errors()->add('car_right_image', 'Car right image is required.');
             }
         });
@@ -253,6 +263,27 @@ class DriverDocumentController extends Controller
         }
 
         return $validator->validated();
+    }
+
+    private function fileOrPathRule(Request $request, string $field): string
+    {
+        return $request->hasFile($field)
+            ? 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120'
+            : 'nullable|string|max:2048';
+    }
+
+    private function hasUploadedFileOrPath(Request $request, string $field, $existingValue = null): bool
+    {
+        if ($request->hasFile($field)) {
+            return true;
+        }
+
+        $value = $request->input($field);
+        if (is_string($value) && trim($value) !== '') {
+            return true;
+        }
+
+        return is_string($existingValue) && trim($existingValue) !== '';
     }
 
 
