@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Storage;
 use App\Models\Vehicle;
 use App\Http\Resources\VehicleResource;
+use App\Models\TripType;
 
 class DriverVehicleController extends Controller
 {
@@ -36,6 +37,13 @@ class DriverVehicleController extends Controller
     public function store(Request $request)
     {
         $user = auth()->user();
+
+        $needLicence = false;
+        if ($request->filled('trip_type_id')) {
+            $tripType = TripType::find($request->input('trip_type_id'));
+            $needLicence = $tripType && $tripType->need_licence;
+        }
+
         $rules = [
             'trip_type_id' => 'required|exists:trip_types,id',
             'vehicle_brand_id' => 'required|exists:vehicle_brands,id',
@@ -43,7 +51,7 @@ class DriverVehicleController extends Controller
             'color' => 'required|string',
             'year' => 'required|integer|min:1900|max:' . date('Y'),
             'plate_number' => 'required|string',
-            'vehicle_license_image' => 'required|mimes:jpg,jpeg,png,pdf',
+            'vehicle_license_image' => ($needLicence ? 'required' : 'nullable') . '|mimes:jpg,jpeg,png,pdf',
             'car_front_image' => 'required|mimes:jpg,jpeg,png,pdf',
             'car_back_image' => 'required|mimes:jpg,jpeg,png,pdf',
             'car_left_image' => 'required|mimes:jpg,jpeg,png,pdf',
