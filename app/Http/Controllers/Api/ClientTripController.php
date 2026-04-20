@@ -442,9 +442,9 @@ class ClientTripController extends Controller
         }
 
         // 2) الرحلة لازم تكون مدفوعة
-        if ($trip->status !== 'paid') {
-            return response()->json(['status' => false, 'message' => 'Trip not paid yet'], 400);
-        }
+        // if ($trip->status !== 'paid') {
+        //     return response()->json(['status' => false, 'message' => 'Trip not paid yet'], 400);
+        // }
 
         // 3) السائق لازم يكون موجود
         if (!$trip->driver_id) {
