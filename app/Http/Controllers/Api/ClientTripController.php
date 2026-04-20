@@ -161,11 +161,7 @@ class ClientTripController extends Controller
             ]);
         });
     }
-    /**
-     * Return paginated trips for the authenticated client with search and filters.
-     *
-     * Supported query params: limit, search (id or driver name/phone), status, trip_type_id, from, to, sort_by, sort_dir
-     */
+
     public function index(Request $request)
     {
         $client = $request->user();

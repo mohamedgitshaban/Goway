@@ -1,6 +1,8 @@
 <?php
 
+use App\Http\Controllers\Api\AdminChatController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ClientTripController;
 use App\Http\Controllers\Api\DriverController;
@@ -86,6 +88,16 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
     });
     Route::post('/fcm-token', [NotificationController::class, 'updateFcmToken']);
+
+    // Chat / Support
+    Route::prefix('chat')->group(function () {
+        Route::get('/conversations', [ChatController::class, 'conversations']);
+        Route::post('/support', [ChatController::class, 'startSupport']);
+        Route::post('/trip/{trip}/support', [ChatController::class, 'startTripSupport']);
+        Route::post('/trip/{trip}/start', [ChatController::class, 'startTripChat']);
+        Route::get('/{conversation}/messages', [ChatController::class, 'messages']);
+        Route::post('/{conversation}/messages', [ChatController::class, 'sendMessage']);
+    });
 });
 Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(function () {
     Route::prefix('auth')->group(function () {
@@ -116,6 +128,16 @@ Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
     });
     Route::post('/fcm-token', [NotificationController::class, 'updateFcmToken']);
+
+    // Chat / Support
+    Route::prefix('chat')->group(function () {
+        Route::get('/conversations', [ChatController::class, 'conversations']);
+        Route::post('/support', [ChatController::class, 'startSupport']);
+        Route::post('/trip/{trip}/support', [ChatController::class, 'startTripSupport']);
+        Route::post('/trip/{trip}/start', [ChatController::class, 'startTripChat']);
+        Route::get('/{conversation}/messages', [ChatController::class, 'messages']);
+        Route::post('/{conversation}/messages', [ChatController::class, 'sendMessage']);
+    });
 });
 
 // Admin-only routes with permission checks
@@ -224,6 +246,14 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
     Route::put('/coupons/{coupon}', [\App\Http\Controllers\Api\CouponController::class, 'update'])->middleware('admin.permission:coupons.update');
     Route::delete('/coupons/{coupon}', [\App\Http\Controllers\Api\CouponController::class, 'destroy'])->middleware('admin.permission:coupons.destroy');
     Route::get('/trips', [\App\Http\Controllers\Api\AdminTripController::class, 'index'])->middleware('admin.permission:trips.index');
+
+    // Admin Chat / Support Management
+    Route::prefix('chat')->group(function () {
+        Route::get('/conversations', [AdminChatController::class, 'index']);
+        Route::get('/conversations/{conversation}', [AdminChatController::class, 'show']);
+        Route::post('/conversations/{conversation}/reply', [AdminChatController::class, 'reply']);
+        Route::post('/conversations/{conversation}/close', [AdminChatController::class, 'close']);
+    });
 });
 
 // Fallback to serve storage files via API if public/storage symlink is not available.
