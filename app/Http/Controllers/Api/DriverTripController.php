@@ -10,9 +10,13 @@ use App\Events\TripAccepted;
 use App\Events\TripLocked;
 use App\Models\Rating;
 use App\Http\Resources\TripResource;
+use App\Services\NotificationService;
 
 class DriverTripController extends Controller
 {
+    public function __construct(
+        protected NotificationService $notificationService
+    ) {}
     public function accept(Request $request, Trip $trip)
     {
         $driver = $request->user();
@@ -64,6 +68,10 @@ class DriverTripController extends Controller
 
             // 7) إرسال Event لباقي السائقين
             broadcast(new TripLocked($trip->id))->toOthers();
+
+            // 8) Push notification to client
+            $trip->load('client');
+            $this->notificationService->notifyTripAccepted($trip);
 
             return response()->json([
                 'status' => true,
@@ -171,6 +179,10 @@ class DriverTripController extends Controller
         // 5) إرسال Event للعميل
         broadcast(new \App\Events\DriverArrived($trip))->toOthers();
 
+        // 6) Push notification to client
+        $trip->load('client');
+        $this->notificationService->notifyDriverArrived($trip);
+
         return response()->json([
             'status' => true,
             'message' => 'Driver marked as arrived',
@@ -208,6 +220,10 @@ class DriverTripController extends Controller
 
         // 5) إرسال Event للعميل
         broadcast(new \App\Events\TripStarted($trip))->toOthers();
+
+        // 6) Push notification to client
+        $trip->load('client');
+        $this->notificationService->notifyTripStarted($trip);
 
         return response()->json([
             'status' => true,
@@ -252,6 +268,10 @@ class DriverTripController extends Controller
 
         // 6) إرسال Event للعميل
         broadcast(new \App\Events\TripCompleted($trip))->toOthers();
+
+        // Push notification to both client and driver
+        $trip->load(['client', 'driver']);
+        $this->notificationService->notifyTripCompleted($trip);
 
         // 7) Reward: if this is the client's 5th completed trip (or every 5th), credit 100 to their wallet
         try {
@@ -306,6 +326,10 @@ class DriverTripController extends Controller
         // 4) إرسال Event للعميل
         broadcast(new \App\Events\TripCancelled($trip))->toOthers();
 
+        // Push notification to client
+        $trip->load('client');
+        $this->notificationService->notifyTripCancelled($trip, 'driver');
+
         return response()->json([
             'status' => true,
             'message' => 'Trip cancelled successfully',
@@ -343,6 +367,10 @@ class DriverTripController extends Controller
 
         // 5) إرسال Event للعميل
         broadcast(new \App\Events\NegotiationOffer($trip))->toOthers();
+
+        // Push notification to client
+        $trip->load('client');
+        $this->notificationService->notifyNegotiationOffer($trip);
 
         return response()->json([
             'status' => true,

@@ -3,16 +3,40 @@
 namespace App\Http\Controllers\Api;
 
 use App\Models\Offer;
+use App\Models\User;
 use App\Http\Resources\OfferResource;
+use App\Services\NotificationService;
+use Illuminate\Http\Request;
 
 class OfferController extends BaseDiscountController
 {
-    public function __construct()
+    protected NotificationService $notificationService;
+
+    public function __construct(NotificationService $notificationService)
     {
         $this->model = Offer::class;
         $this->resource = OfferResource::class;
-
         $this->searchFields = ['title_ar' , 'title_en', 'description_ar', 'description_en', 'trip_type'];
+        $this->notificationService = $notificationService;
+    }
+
+    public function store(Request $request)
+    {
+        $response = parent::store($request);
+
+        // Notify target users about the new offer
+        $offer = $response->resource ?? null;
+        if ($offer && $offer->is_active) {
+            $userType = $offer->user_type; // 'driver' or 'client'
+            $users = User::where('usertype', $userType)
+                ->where('status', 'active')
+                ->whereNotNull('fcm_token')
+                ->get();
+
+            $this->notificationService->notifyNewOffer($offer, $users);
+        }
+
+        return $response;
     }
 
     protected function rules($id = null)

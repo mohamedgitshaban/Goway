@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\ClientTripController;
 use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\DriverTripController;
 use App\Http\Controllers\Api\FavoriteLocationController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\TripTypeController;
 use App\Http\Controllers\Api\UserCouponController;
 use App\Http\Controllers\Api\WalletController;
@@ -58,15 +59,17 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::get('/', [\App\Http\Controllers\Api\DriverDocumentController::class, 'index']);
     });
     Route::post('/location', [\App\Http\Controllers\Api\DriverLocationController::class, 'update']);
-    Route::post('/trips/{trip}/accept', [\App\Http\Controllers\Api\DriverTripController::class, 'accept']);
-    Route::post('/trips/{trip}/arrived', [\App\Http\Controllers\Api\DriverTripController::class, 'arrived']);
-    Route::post('/trips/{trip}/start', [\App\Http\Controllers\Api\DriverTripController::class, 'start']);
-    Route::post('/trips/{trip}/complete', [\App\Http\Controllers\Api\DriverTripController::class, 'complete']);
-    Route::post('/trips/{trip}/cancel', [DriverTripController::class, 'cancel']);
-    Route::post('/driver/trips/{trip}/negotiate', [DriverTripController::class, 'negotiate']);
-    Route::post('/driver/trips/{trip}/rate', [DriverTripController::class, 'rateClient']);
-    Route::get('/trips', [\App\Http\Controllers\Api\DriverTripController::class, 'index']);
 
+    Route::prefix('trips')->group(function () {
+        Route::post('/{trip}/accept', [\App\Http\Controllers\Api\DriverTripController::class, 'accept']);
+        Route::post('/{trip}/arrived', [\App\Http\Controllers\Api\DriverTripController::class, 'arrived']);
+        Route::post('/{trip}/start', [\App\Http\Controllers\Api\DriverTripController::class, 'start']);
+        Route::post('/{trip}/complete', [\App\Http\Controllers\Api\DriverTripController::class, 'complete']);
+        Route::post('/{trip}/cancel', [DriverTripController::class, 'cancel']);
+        Route::post('/{trip}/negotiate', [DriverTripController::class, 'negotiate']);
+        Route::post('/{trip}/rate', [DriverTripController::class, 'rateClient']);
+        Route::get('/', [\App\Http\Controllers\Api\DriverTripController::class, 'index']);
+    });
     // driver vehicle management (list, create, activate)
     Route::prefix('vehicles')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\DriverVehicleController::class, 'index']);
@@ -74,6 +77,15 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::match(['put', 'patch'], '/{id}', [\App\Http\Controllers\Api\DriverVehicleController::class, 'update']);
         Route::post('/{id}/activate', [\App\Http\Controllers\Api\DriverVehicleController::class, 'activate']);
     });
+
+    // Notifications
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index']);
+        Route::get('/unread-count', [NotificationController::class, 'unreadCount']);
+        Route::post('/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
+    });
+    Route::post('/fcm-token', [NotificationController::class, 'updateFcmToken']);
 });
 Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(function () {
     Route::prefix('auth')->group(function () {
@@ -85,14 +97,25 @@ Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(functio
     Route::get('/offers', [\App\Http\Controllers\Api\OfferController::class, 'index']);
     Route::get('/coupons', [UserCouponController::class, 'allCoupons']);
     Route::get('/nearby-drivers', [\App\Http\Controllers\Api\ClientNearbyDriversController::class, 'index']);
-    Route::post('/trips/estimate', [\App\Http\Controllers\Api\ClientTripController::class, 'estimate']);
-    Route::post('/trips', [\App\Http\Controllers\Api\ClientTripController::class, 'store']);
-    Route::post('/trips/{trip}/cancel', [\App\Http\Controllers\Api\ClientTripController::class, 'cancel']);
-    Route::post('/trips/{trip}/negotiate/accept', [ClientTripController::class, 'acceptNegotiation']);
-    Route::post('/trips/{trip}/negotiate/reject', [ClientTripController::class, 'rejectNegotiation']);
-    Route::post('/trips/{trip}/negotiate/counter', [ClientTripController::class, 'counterNegotiation']);
-    Route::post('/trips/{trip}/rate', [ClientTripController::class, 'rateDriver']);
-    Route::get('/trips', [\App\Http\Controllers\Api\ClientTripController::class, 'index']);
+
+    Route::prefix('trips')->group(function () {
+        Route::post('/estimate', [ClientTripController::class, 'estimate']);
+        Route::post('/', [ClientTripController::class, 'store']);
+        Route::post('/{trip}/cancel', [ClientTripController::class, 'cancel']);
+        Route::post('/{trip}/negotiate/accept', [ClientTripController::class, 'acceptNegotiation']);
+        Route::post('/{trip}/negotiate/reject', [ClientTripController::class, 'rejectNegotiation']);
+        Route::post('/{trip}/negotiate/counter', [ClientTripController::class, 'counterNegotiation']);
+        Route::post('/{trip}/rate', [ClientTripController::class, 'rateDriver']);
+        Route::get('/', [ClientTripController::class, 'index']);
+    });
+    // Notifications
+    Route::prefix('notifications')->group(function () {
+        Route::get('/', [NotificationController::class, 'index']);
+        Route::get('/unread-count', [NotificationController::class, 'unreadCount']);
+        Route::post('/{id}/read', [NotificationController::class, 'markAsRead']);
+        Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
+    });
+    Route::post('/fcm-token', [NotificationController::class, 'updateFcmToken']);
 });
 
 // Admin-only routes with permission checks

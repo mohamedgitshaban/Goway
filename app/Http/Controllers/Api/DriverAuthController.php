@@ -9,7 +9,9 @@ use App\Models\Otp;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redis;
+use App\Mail\WelcomeMail;
 
 class DriverAuthController extends Controller
 {
@@ -117,6 +119,12 @@ class DriverAuthController extends Controller
         $token = $user->createToken('api-token')->plainTextToken;
         $user->is_online = true;
         $user->save();
+
+        // Send welcome email
+        if ($user->email) {
+            Mail::to($user->email)->queue(new WelcomeMail($user));
+        }
+
         return response()->json([
             'token' => $token,
             'user'  => new DriverResource($user),

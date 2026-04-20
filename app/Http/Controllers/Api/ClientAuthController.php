@@ -15,6 +15,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
+use App\Mail\WelcomeMail;
 
 class ClientAuthController extends Controller
 {
@@ -114,6 +115,11 @@ class ClientAuthController extends Controller
         }
 
         $token = $user->createToken('api-token')->plainTextToken;
+
+        // Send welcome email
+        if ($user->email) {
+            Mail::to($user->email)->queue(new WelcomeMail($user));
+        }
 
         return response()->json([
             'token' => $token,

@@ -34,7 +34,8 @@ class User extends Authenticatable
         'usertype',
         'status',
         'personal_image',
-        'is_online'
+        'is_online',
+        'fcm_token',
     ];
 
     /**

@@ -2,17 +2,39 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Models\Client;
 use App\Models\Coupon;
 use App\Http\Resources\CouponResource;
+use App\Services\NotificationService;
+use Illuminate\Http\Request;
 
 class CouponController extends BaseDiscountController
 {
-    public function __construct()
+    protected NotificationService $notificationService;
+
+    public function __construct(NotificationService $notificationService)
     {
         $this->model = Coupon::class;
         $this->resource = CouponResource::class;
-
         $this->searchFields = ['code', 'trip_type'];
+        $this->notificationService = $notificationService;
+    }
+
+    public function store(Request $request)
+    {
+        $response = parent::store($request);
+
+        // Notify active clients about the new coupon
+        $coupon = $response->resource ?? null;
+        if ($coupon && $coupon->is_active) {
+            $clients = Client::where('status', 'active')
+                ->whereNotNull('fcm_token')
+                ->get();
+
+            $this->notificationService->notifyNewCoupon($coupon, $clients);
+        }
+
+        return $response;
     }
 
     protected function rules($id = null)

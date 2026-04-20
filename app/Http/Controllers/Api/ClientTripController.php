@@ -16,9 +16,13 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use App\Support\GeoHash;
 use App\Http\Resources\TripResource;
+use App\Services\NotificationService;
 
 class ClientTripController extends Controller
 {
+    public function __construct(
+        protected NotificationService $notificationService
+    ) {}
     public function store(Request $request)
     {
         $user = $request->user(); // client
@@ -145,6 +149,7 @@ class ClientTripController extends Controller
                 $driver = Driver::find($driverId);
                 if ($driver && $driver->is_online) {
                     broadcast(new NewTripRequest($trip, $driverId));
+                    $this->notificationService->notifyNewTripRequest($trip, $driver);
                 }
             }
 
@@ -333,6 +338,9 @@ class ClientTripController extends Controller
         // 4) إرسال Event للسائق
         broadcast(new \App\Events\TripCancelled($trip))->toOthers();
 
+        // Push notification to driver
+        $this->notificationService->notifyTripCancelled($trip, 'client');
+
         return response()->json([
             'status' => true,
             'message' => 'Trip cancelled successfully',
@@ -361,6 +369,10 @@ class ClientTripController extends Controller
 
         broadcast(new \App\Events\NegotiationAccepted($trip))->toOthers();
 
+        // Push notification to driver
+        $trip->load('driver');
+        $this->notificationService->notifyNegotiationAccepted($trip, 'client');
+
         return response()->json([
             'status' => true,
             'message' => 'Offer accepted',
@@ -380,6 +392,10 @@ class ClientTripController extends Controller
         ]);
 
         broadcast(new \App\Events\NegotiationRejected($trip))->toOthers();
+
+        // Push notification to driver
+        $trip->load('driver');
+        $this->notificationService->notifyNegotiationRejected($trip, 'client');
 
         return response()->json([
             'status' => true,
@@ -404,6 +420,10 @@ class ClientTripController extends Controller
         ]);
 
         broadcast(new \App\Events\NegotiationCounter($trip))->toOthers();
+
+        // Push notification to driver
+        $trip->load('driver');
+        $this->notificationService->notifyNegotiationCounter($trip);
 
         return response()->json([
             'status' => true,
