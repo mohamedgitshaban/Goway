@@ -29,6 +29,10 @@ class NewTripRequest implements ShouldBroadcastNow
 
     public function broadcastWith()
     {
-        return new TripResource($this->trip);
+        return [
+            'trip' => new TripResource($this->trip),
+            'trip_id' => $this->trip->id,
+            'driver_id' => $this->driverId,
+        ];
     }
 }
