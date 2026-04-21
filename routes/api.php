@@ -1,6 +1,8 @@
 <?php
 
 use App\Http\Controllers\Api\AdminChatController;
+use App\Http\Controllers\Api\SafetyAccessController;
+use App\Http\Controllers\Api\TrustedContactController;
 use App\Http\Controllers\Api\AdminController;
 use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\ClientController;
@@ -9,6 +11,7 @@ use App\Http\Controllers\Api\DriverController;
 use App\Http\Controllers\Api\DriverTripController;
 use App\Http\Controllers\Api\FavoriteLocationController;
 use App\Http\Controllers\Api\NotificationController;
+use App\Http\Controllers\Api\TripSafetyController;
 use App\Http\Controllers\Api\TripTypeController;
 use App\Http\Controllers\Api\UserCouponController;
 use App\Http\Controllers\Api\WalletController;
@@ -70,6 +73,11 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::post('/{trip}/cancel', [DriverTripController::class, 'cancel']);
         Route::post('/{trip}/negotiate', [DriverTripController::class, 'negotiate']);
         Route::post('/{trip}/rate', [DriverTripController::class, 'rateClient']);
+        Route::post('/{trip}/safety/location', [TripSafetyController::class, 'storeLocation']);
+        Route::post('/{trip}/safety/voice', [TripSafetyController::class, 'uploadVoice']);
+        Route::post('/{trip}/safety/voice/start', [TripSafetyController::class, 'startVoiceSession']);
+        Route::post('/{trip}/safety/voice/chunk', [TripSafetyController::class, 'uploadVoiceChunk']);
+        Route::post('/{trip}/safety/voice/{recording}/finish', [TripSafetyController::class, 'finishVoiceSession']);
         Route::get('/', [\App\Http\Controllers\Api\DriverTripController::class, 'index']);
     });
     // driver vehicle management (list, create, activate)
@@ -88,6 +96,16 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
     });
     Route::post('/fcm-token', [NotificationController::class, 'updateFcmToken']);
+
+    // Safety access settings
+    Route::get('/safety-access', [SafetyAccessController::class, 'show']);
+    Route::put('/safety-access', [SafetyAccessController::class, 'update']);
+
+    // Trusted contacts (max 3)
+    Route::get('/trusted-contacts', [TrustedContactController::class, 'index']);
+    Route::post('/trusted-contacts', [TrustedContactController::class, 'store']);
+    Route::put('/trusted-contacts/{id}', [TrustedContactController::class, 'update']);
+    Route::delete('/trusted-contacts/{id}', [TrustedContactController::class, 'destroy']);
 
     // Chat / Support
     Route::prefix('chat')->group(function () {
@@ -118,6 +136,11 @@ Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::post('/{trip}/negotiate/reject', [ClientTripController::class, 'rejectNegotiation']);
         Route::post('/{trip}/negotiate/counter', [ClientTripController::class, 'counterNegotiation']);
         Route::post('/{trip}/rate', [ClientTripController::class, 'rateDriver']);
+        Route::post('/{trip}/safety/location', [TripSafetyController::class, 'storeLocation']);
+        Route::post('/{trip}/safety/voice', [TripSafetyController::class, 'uploadVoice']);
+        Route::post('/{trip}/safety/voice/start', [TripSafetyController::class, 'startVoiceSession']);
+        Route::post('/{trip}/safety/voice/chunk', [TripSafetyController::class, 'uploadVoiceChunk']);
+        Route::post('/{trip}/safety/voice/{recording}/finish', [TripSafetyController::class, 'finishVoiceSession']);
         Route::get('/', [ClientTripController::class, 'index']);
     });
     // Notifications
@@ -129,6 +152,12 @@ Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(functio
     });
     Route::post('/fcm-token', [NotificationController::class, 'updateFcmToken']);
 
+    // Safety access settings
+    Route::get('/safety-access', [SafetyAccessController::class, 'show']);
+    Route::put('/safety-access', [SafetyAccessController::class, 'update']);
+
+    // Trusted contacts (max 3)
+    Route::apiResource('trusted-contacts', TrustedContactController::class);
     // Chat / Support
     Route::prefix('chat')->group(function () {
         Route::get('/conversations', [ChatController::class, 'conversations']);

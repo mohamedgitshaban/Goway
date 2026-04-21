@@ -36,6 +36,8 @@ class User extends Authenticatable
         'personal_image',
         'is_online',
         'fcm_token',
+        'safety_location_access',
+        'safety_voice_access',
     ];
 
     /**
@@ -55,6 +57,8 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'safety_location_access' => 'boolean',
+        'safety_voice_access' => 'boolean',
     ];
     protected static function booted()
     {
@@ -79,6 +83,11 @@ class User extends Authenticatable
     public function wallet()
     {
         return $this->hasOne(Wallet::class , 'user_id');
+    }
+
+    public function trustedContacts()
+    {
+        return $this->hasMany(TrustedContact::class);
     }
 
     /**

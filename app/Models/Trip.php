@@ -85,4 +85,14 @@ class Trip extends Model
     {
         return $this->belongsTo(Coupon::class);
     }
+
+    public function safetyLocations()
+    {
+        return $this->hasMany(TripSafetyLocation::class)->orderBy('recorded_at');
+    }
+
+    public function safetyRecordings()
+    {
+        return $this->hasMany(TripSafetyRecording::class)->latest();
+    }
 }
