@@ -42,9 +42,12 @@ class TripResource extends JsonResource
             'cancelled_by' => $this->cancelled_by,
             'cancel_reason' => $this->cancel_reason,
             'cancel_description' => $this->cancel_description,
+            'client_rate' => $this->clientRating?->rating,
+            'driver_rate' => $this->driverRating?->rating,
             
             // 🔵 Relations
             'client' => new ClientResource($this->client),
+            
             'driver' => new DriverResource($this->driver),
             'trip_type' => new TripTypeResource($this->tripType),
             'waypoints' => TripWaypointResource::collection($this->waypoints),

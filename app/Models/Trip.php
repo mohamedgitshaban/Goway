@@ -4,6 +4,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Trip extends Model
 {
@@ -84,6 +85,20 @@ class Trip extends Model
     public function coupon()
     {
         return $this->belongsTo(Coupon::class);
+    }
+
+    public function clientRating(): HasOne
+    {
+        return $this->hasOne(Rating::class)
+            ->where('rated_by', 'driver')
+            ->latestOfMany();
+    }
+
+    public function driverRating(): HasOne
+    {
+        return $this->hasOne(Rating::class)
+            ->where('rated_by', 'client')
+            ->latestOfMany();
     }
 
     public function safetyLocations()
