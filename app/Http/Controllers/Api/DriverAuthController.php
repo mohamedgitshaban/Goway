@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\DriverResource;
 use App\Models\Driver;
 use App\Models\Otp;
+use App\Services\OtpService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
@@ -15,6 +16,10 @@ use App\Mail\WelcomeMail;
 
 class DriverAuthController extends Controller
 {
+    public function __construct(private readonly OtpService $otpService)
+    {
+    }
+
     public function send_otp(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -28,9 +33,14 @@ class DriverAuthController extends Controller
         $user = Driver::where('phone', $request->input('phone'))->first();
         if (! $user) return response()->json(['message' => 'User not found'], 404);
 
-        // $code = (string) random_int(100000, 999999);
-        Otp::create(['user_id' => $user->id, 'code' => '12345', 'expires_at' => now()->addMinutes(10)]);
-        // TODO: integrate SMS provider. For now return OK (do not return code in prod)
+        try {
+            $this->otpService->issue($user->id, $user->phone);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => 'Unable to send OTP at the moment'], 502);
+        }
+
         return response()->json(['message' => 'OTP sent to phone']);
     }
     // POST /Driver/login
@@ -84,18 +94,27 @@ class DriverAuthController extends Controller
             $path = config('filesystems.disks.public.url') . '/' .$request->file('personal_image')->store('drivers/personal', 'public');
             $data['personal_image'] = $path;
         }
-        return DB::transaction(function () use ($data, $request) {
-            $user = Driver::create([
-                'first_name' => $data['first_name'],
-                'last_name' => $data['last_name'],
-                'phone' => $data['phone'],
-                'email' => $data['email'] ?? null,
-                'status' => 'pending_otp',
-                'personal_image' =>  $data['personal_image'] ?? null,
-            ]);
-            Otp::create(['user_id' => $user->id, 'code' => '12345', 'expires_at' => now()->addMinutes(10)]);
-            return response()->json($user, 201);
-        });
+
+        try {
+            return DB::transaction(function () use ($data) {
+                $user = Driver::create([
+                    'first_name' => $data['first_name'],
+                    'last_name' => $data['last_name'],
+                    'phone' => $data['phone'],
+                    'email' => $data['email'] ?? null,
+                    'status' => 'pending_otp',
+                    'personal_image' =>  $data['personal_image'] ?? null,
+                ]);
+
+                $this->otpService->issue($user->id, $user->phone);
+
+                return response()->json($user, 201);
+            });
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => 'Unable to complete registration at the moment'], 502);
+        }
     }
     public function activatePhone(Request $request)
     {

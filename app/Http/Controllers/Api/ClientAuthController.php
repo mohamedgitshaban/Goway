@@ -5,9 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ClientResource;
 use App\Models\Client;
-use App\Models\User;
 use App\Models\Otp;
+use App\Models\User;
 use App\Models\Wallet;
+use App\Services\OtpService;
 use App\Traits\HandlesMultipart;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -20,6 +21,10 @@ use App\Mail\WelcomeMail;
 class ClientAuthController extends Controller
 {
     use HandlesMultipart;
+
+    public function __construct(private readonly OtpService $otpService)
+    {
+    }
 
     public function send_otp(Request $request)
     {
@@ -34,9 +39,14 @@ class ClientAuthController extends Controller
         $user = Client::where('phone', $request->input('phone'))->first();
         if (! $user) return response()->json(['message' => 'User not found'], 404);
 
-        // $code = (string) random_int(100000, 999999);
-        Otp::create(['user_id' => $user->id, 'code' => '12345', 'expires_at' => now()->addMinutes(10)]);
-        // TODO: integrate SMS provider. For now return OK (do not return code in prod)
+        try {
+            $this->otpService->issue($user->id, $user->phone);
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => 'Unable to send OTP at the moment'], 502);
+        }
+
         return response()->json(['message' => 'OTP sent to phone']);
     }
     // POST /client/login
@@ -83,17 +93,25 @@ class ClientAuthController extends Controller
 
         $data = $validator->validated();
 
-        return DB::transaction(function () use ($data) {
-            $user = Client::create([
-                'first_name' => $data['first_name'],
-                'last_name' => $data['last_name'],
-                'phone' => $data['phone'],
-                'email' => $data['email'] ?? null,
-                'status' => 'pending_otp',
-            ]);
-            Otp::create(['user_id' => $user->id, 'code' => '12345', 'expires_at' => now()->addMinutes(10)]);
-            return response()->json($user, 201);
-        });
+        try {
+            return DB::transaction(function () use ($data) {
+                $user = Client::create([
+                    'first_name' => $data['first_name'],
+                    'last_name' => $data['last_name'],
+                    'phone' => $data['phone'],
+                    'email' => $data['email'] ?? null,
+                    'status' => 'pending_otp',
+                ]);
+
+                $this->otpService->issue($user->id, $user->phone);
+
+                return response()->json($user, 201);
+            });
+        } catch (\Throwable $exception) {
+            report($exception);
+
+            return response()->json(['message' => 'Unable to complete registration at the moment'], 502);
+        }
     }
     public function activatePhone(Request $request)
     {
