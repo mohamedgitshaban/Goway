@@ -32,11 +32,11 @@ return [
     ],
 
     'twilio' => [
-        'sid' => env('TWILIO_SID'),
-        'token' => env('TWILIO_AUTH_TOKEN'),
+        'sid' => env('TWILIO_SID','ACc0a5deb2ebf622df6a3029b765470a13'),
+        'token' => env('TWILIO_AUTH_TOKEN','76c8a99a09e71e103deb685847ccafbe'),
         'whatsapp_from' => env('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886'),
-        'whatsapp_content_sid' => env('TWILIO_WHATSAPP_CONTENT_SID'),
-        'default_country_code' => env('TWILIO_DEFAULT_COUNTRY_CODE'),
+        'whatsapp_content_sid' => env('TWILIO_WHATSAPP_CONTENT_SID',''),
+        'default_country_code' => env('TWILIO_DEFAULT_COUNTRY_CODE',20),
         'otp_ttl_minutes' => (int) env('OTP_TTL_MINUTES', 10),
         'otp_message' => env('TWILIO_OTP_MESSAGE', 'Your Goway verification code is :code. It expires in :minutes minutes.'),
     ],

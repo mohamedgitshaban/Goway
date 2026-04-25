@@ -14,7 +14,7 @@ class TwilioWhatsappService
         $sid = (string) config('services.twilio.sid');
         $token = (string) config('services.twilio.token');
         $from = (string) config('services.twilio.whatsapp_from');
-
+    
         if ($sid === '' || $token === '' || $from === '') {
             throw new RuntimeException('Twilio WhatsApp credentials are not configured.');
         }
