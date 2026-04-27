@@ -43,7 +43,6 @@ class ClientAuthController extends Controller
             $this->otpService->issue($user->id, $user->phone);
         } catch (\Throwable $exception) {
             report($exception);
-
             return response()->json(['message' => 'Unable to send OTP at the moment'], 502);
         }
 
@@ -65,6 +64,7 @@ class ClientAuthController extends Controller
         if (! $user) return response()->json(['message' => 'User not found'], 404);
 
         $otp = Otp::where('user_id', $user->id)->orderBy('expires_at', 'desc')->first();
+
         if (! $otp || $otp->code !== $request->input('otp') || $otp->expires_at->isPast()) {
             return response()->json(['message' => 'Invalid or expired OTP'], 401);
         }

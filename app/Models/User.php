@@ -85,6 +85,11 @@ class User extends Authenticatable
         return $this->hasOne(Wallet::class , 'user_id');
     }
 
+    public function getWalletBalanceAttribute()
+    {
+        return $this->wallet ? $this->wallet->balance : 0;
+    }
+
     public function trustedContacts()
     {
         return $this->hasMany(TrustedContact::class);

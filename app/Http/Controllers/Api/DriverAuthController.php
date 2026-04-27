@@ -37,7 +37,6 @@ class DriverAuthController extends Controller
             $this->otpService->issue($user->id, $user->phone);
         } catch (\Throwable $exception) {
             report($exception);
-
             return response()->json(['message' => 'Unable to send OTP at the moment'], 502);
         }
 

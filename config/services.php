@@ -41,4 +41,11 @@ return [
         'otp_message' => env('TWILIO_OTP_MESSAGE', 'Your Goway verification code is :code. It expires in :minutes minutes.'),
     ],
 
+    'baymob' => [
+        'api_key' => env('BAYMOB_API_KEY'),
+        'merchant_id' => env('BAYMOB_MERCHANT_ID'),
+        'endpoint' => env('BAYMOB_ENDPOINT', 'https://api.baymob.example'),
+        'callback_url' => env('BAYMOB_CALLBACK_URL'),
+    ],
+
 ];

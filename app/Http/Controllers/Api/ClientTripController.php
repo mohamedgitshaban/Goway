@@ -6,30 +6,31 @@ use App\Http\Controllers\Controller;
 use App\Models\Trip;
 use App\Models\TripWaypoint;
 use App\Models\TripType;
-use App\Models\Coupon;
 use App\Models\Offer;
-use App\Events\NewTripRequest;
+use App\Models\Coupon;
 use App\Models\Driver;
 use App\Models\Rating;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Redis;
-use App\Support\GeoHash;
+use App\Repositories\TripRepository;
 use App\Http\Resources\TripResource;
 use App\Services\NotificationService;
+use App\Support\GeoHash;
+use Illuminate\Support\Facades\Redis;
 
 class ClientTripController extends Controller
 {
     public function __construct(
+        protected TripRepository $trips,
         protected NotificationService $notificationService
     ) {}
+
     public function store(Request $request)
     {
         $user = $request->user(); // client
 
         $data = $request->validate([
             'trip_type_id'      => 'required|exists:trip_types,id',
-            'payment_method'    => 'required|in:cash,wallet',
+            'payment_method'    => 'required|in:cash,wallet,visa',
             'origin_lat'        => 'required|numeric',
             'origin_lng'        => 'required|numeric',
             'origin_address'    => 'nullable|string',
@@ -44,122 +45,14 @@ class ClientTripController extends Controller
             'negotiation_enabled' => 'boolean',
         ]);
 
-        return DB::transaction(function () use ($data, $user) {
+        $trip = $this->trips->createTrip($user, $data);
 
-            $tripType = TripType::findOrFail($data['trip_type_id']);
-
-            // TODO: حساب المسافة الفعلية
-            $distanceKm = $this->calculateTripDistance($data);
-
-            $baseFare    = $tripType->base_fare;
-            $pricePerKm  = $tripType->price_per_km;
-            $original    = $baseFare + ($distanceKm * $pricePerKm);
-
-            $discountAmount = 0;
-            $offerId = null;
-            $couponId = null;
-
-            // Offer
-            $offer = Offer::active()->where('trip_type_id', $tripType->id)->first();
-            if ($offer) {
-                $offerDiscount = $original * 0.2;
-                $discountAmount += $offerDiscount;
-                $offerId = $offer->id;
-            }
-
-            // Coupon
-            if (!empty($data['coupon_code'])) {
-                $coupon = Coupon::active()->where('code', $data['coupon_code'])->first();
-                if ($coupon && $coupon->isValidFor($user, $tripType)) {
-                    $couponDiscount = 10;
-                    $discountAmount += $couponDiscount;
-                    $couponId = $coupon->id;
-                }
-            }
-
-            $finalPrice = max(0, $original - $discountAmount);
-            if ($data['payment_method'] === 'wallet' && $user->wallet_balance < $finalPrice) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Insufficient wallet balance',
-                    'required_amount' => $finalPrice,
-                    'wallet_balance' => $user->wallet_balance,
-                ], 400);
-            }
-            $trip = Trip::create([
-                'client_id'      => $user->id,
-                'trip_type_id'   => $tripType->id,
-                'status'         => 'searching_driver',
-                'payment_method' => $data['payment_method'],
-                'distance_km'    => $distanceKm,
-                'base_fare'      => $baseFare,
-                'price_per_km'   => $pricePerKm,
-                'original_price' => $original,
-                'discount_amount' => $discountAmount,
-                'final_price'    => $finalPrice,
-                'offer_id'       => $offerId,
-                'coupon_id'      => $couponId,
-                'negotiation_enabled' => $data['negotiation_enabled'] ?? false,
-                'origin_lat'     => $data['origin_lat'],
-                'origin_lng'     => $data['origin_lng'],
-                'origin_address' => $data['origin_address'] ?? null,
-                'destination_lat' => $data['destination_lat'],
-                'destination_lng' => $data['destination_lng'],
-                'destination_address' => $data['destination_address'] ?? null,
-            ]);
-
-            // Save waypoints
-            if (!empty($data['waypoints'])) {
-                foreach ($data['waypoints'] as $index => $wp) {
-                    TripWaypoint::create([
-                        'trip_id' => $trip->id,
-                        'order'   => $index + 1,
-                        'lat'     => $wp['lat'],
-                        'lng'     => $wp['lng'],
-                        'address' => $wp['address'] ?? null,
-                    ]);
-                }
-            }
-
-            /*
-            |--------------------------------------------------------------------------
-            | 🔥 إرسال الرحلة للسائقين القريبين (geohash)
-            |--------------------------------------------------------------------------
-            */
-            $originGeohash = GeoHash::encode($trip->origin_lat, $trip->origin_lng, 7);
-
-            $cells = array_merge(
-                [$originGeohash],
-                GeoHash::neighbors($originGeohash)
-            );
-
-            $nearbyDrivers = [];
-
-            foreach ($cells as $cell) {
-                $nearbyDrivers = array_merge(
-                    $nearbyDrivers,
-                    Redis::smembers("geohash:drivers:{$cell}")
-                );
-            }
-
-            $nearbyDrivers = array_unique($nearbyDrivers);
-
-
-            foreach ($nearbyDrivers as $driverId) {
-                $driver = Driver::find($driverId);
-                if ($driver && $driver->is_online) {
-                    broadcast(new NewTripRequest($trip, $driverId));
-                    $this->notificationService->notifyNewTripRequest($trip, $driver);
-                }
-            }
-
-            return response()->json([
-                'status'  => true,
-                'message' => 'Trip created successfully',
-                'trip_id' => $trip->id,
-                'trip_channel' => "trip.{$trip->id}",
-            ]);
-        });
+        return response()->json([
+            'status'  => true,
+            'message' => 'Trip created successfully',
+            'trip_id' => $trip->id,
+            'trip_channel' => "trip.{$trip->id}",
+        ]);
     }
 
     public function index(Request $request)
@@ -224,6 +117,7 @@ class ClientTripController extends Controller
 
         return TripResource::collection($data);
     }
+
     public function estimate(Request $request)
     {
         $data = $request->validate([
@@ -236,8 +130,7 @@ class ClientTripController extends Controller
             'waypoints.*.lng'   => 'required_with:waypoints|numeric',
         ]);
 
-        // TODO: احسب المسافة الفعلية
-        $distanceKm = $this->calculateTripDistance($data);
+        $distanceKm = $this->trips->calculateTripDistance($data);
         $tripTypes = \App\Models\TripType::all();
 
         $estimates = [];
@@ -265,84 +158,27 @@ class ClientTripController extends Controller
             'estimates' => $estimates,
         ]);
     }
-    private function calculateTripDistance(array $data): float
-    {
-        $points = [];
 
-        // origin
-        $points[] = [
-            'lat' => $data['origin_lat'],
-            'lng' => $data['origin_lng'],
-        ];
-
-        // waypoints
-        if (!empty($data['waypoints'])) {
-            foreach ($data['waypoints'] as $wp) {
-                $points[] = [
-                    'lat' => $wp['lat'],
-                    'lng' => $wp['lng'],
-                ];
-            }
-        }
-
-        // destination
-        $points[] = [
-            'lat' => $data['destination_lat'],
-            'lng' => $data['destination_lng'],
-        ];
-
-        // احسب المسافة بين كل نقطتين متتاليتين
-        $totalKm = 0;
-
-        for ($i = 0; $i < count($points) - 1; $i++) {
-            $totalKm += GeoHash::distanceKm(
-                $points[$i]['lat'],
-                $points[$i]['lng'],
-                $points[$i + 1]['lat'],
-                $points[$i + 1]['lng']
-            );
-        }
-
-        return round($totalKm, 2);
-    }
     public function cancel(Request $request, Trip $trip)
     {
         $client = $request->user();
 
-        // 1) تأكيد إن العميل هو صاحب الرحلة
         if ($trip->client_id !== $client->id) {
             return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
         }
 
-        // 2) الرحلة لا يمكن إلغاؤها بعد البدء
         if (! in_array($trip->status, ['searching_driver', 'driver_assigned', 'driver_arrived'])) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Trip cannot be cancelled at this stage'
-            ], 400);
+            return response()->json(['status' => false, 'message' => 'Trip cannot be cancelled at this stage'], 400);
         }
 
-        // 3) تحديث حالة الرحلة
-        $trip->update([
-            'status' => 'cancelled_by_client',
-            'cancelled_at' => now(),
-            'cancelled_by' => 'client',
-            'cancel_reason' => $request->cancel_reason ?? null,
-            'cancel_description' => $request->cancel_description ?? null,
-        ]);
+        $reason = $request->cancel_reason ?? null;
+        $desc = $request->cancel_description ?? null;
 
-        // 4) إرسال Event للسائق
-        broadcast(new \App\Events\TripCancelled($trip))->toOthers();
+        $res = $this->trips->clientCancel($trip, $client, $reason, $desc);
 
-        // Push notification to driver
-        $this->notificationService->notifyTripCancelled($trip, 'client');
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Trip cancelled successfully',
-            'trip' => $trip,
-        ]);
+        return response()->json($res);
     }
+
     public function acceptNegotiation(Request $request, Trip $trip)
     {
         $client = $request->user();
@@ -355,7 +191,6 @@ class ClientTripController extends Controller
             return response()->json(['status' => false, 'message' => 'No pending offer'], 400);
         }
 
-        // قبول السعر الجديد
         $trip->update([
             'negotiated_price_before' => $trip->final_price,
             'negotiated_price_after' => $trip->negotiation_price,
@@ -365,7 +200,6 @@ class ClientTripController extends Controller
 
         broadcast(new \App\Events\NegotiationAccepted($trip))->toOthers();
 
-        // Push notification to driver
         $trip->load('driver');
         $this->notificationService->notifyNegotiationAccepted($trip, 'client');
 
@@ -375,6 +209,7 @@ class ClientTripController extends Controller
             'final_price' => $trip->final_price,
         ]);
     }
+
     public function rejectNegotiation(Request $request, Trip $trip)
     {
         $client = $request->user();
@@ -389,7 +224,6 @@ class ClientTripController extends Controller
 
         broadcast(new \App\Events\NegotiationRejected($trip))->toOthers();
 
-        // Push notification to driver
         $trip->load('driver');
         $this->notificationService->notifyNegotiationRejected($trip, 'client');
 
