@@ -46,7 +46,7 @@ class OtpService
                 return $otp;
             }
 
-            $otp->delete();
+            //$otp->delete();
 
             throw $exception;
         }
