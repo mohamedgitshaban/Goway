@@ -14,6 +14,12 @@ class Driver extends User
             $model->usertype = User::ROLE_DRIVER;
             $model->name = $model->first_name . ' ' . $model->last_name;
         });
+        static::created(function ($model) {
+            $model->wallet()->create([
+                'user_id' => $model->id,
+                'balance' => 0,
+            ]);
+        });
         static::updating(function ($model) {
             $model->name = $model->first_name . ' ' . $model->last_name;
         });
