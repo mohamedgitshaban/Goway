@@ -14,23 +14,52 @@ class TwilioWhatsappService
         $sid = (string) config('services.twilio.sid');
         $token = (string) config('services.twilio.token');
         $from = (string) config('services.twilio.whatsapp_from');
-
+    
         if ($sid === '' || $token === '' || $from === '') {
             throw new RuntimeException('Twilio WhatsApp credentials are not configured.');
         }
 
-        $payload = [
-            'from' => $this->formatWhatsappAddress($from),
-            'body' => $this->formatOtpMessage($code),
-        ];
+        // Determine whether we're sending via WhatsApp or SMS
+        $fromAddress = $this->formatWhatsappAddress($from);
+        $toAddress = $this->formatWhatsappAddress($phone);
 
-        $contentSid = (string) config('services.twilio.whatsapp_content_sid');
-        if ($contentSid !== '') {
-            $payload['contentSid'] = $contentSid;
-            $payload['contentVariables'] = json_encode($this->buildContentVariables($code), JSON_THROW_ON_ERROR);
+        $isWhatsapp = str_starts_with($fromAddress, 'whatsapp:') || str_starts_with($toAddress, 'whatsapp:');
+
+        if ($isWhatsapp) {
+            $payload = [
+                'from' => $fromAddress,
+                'body' => $this->formatOtpMessage($code),
+            ];
+
+            $contentSid = (string) config('services.twilio.whatsapp_content_sid');
+            if ($contentSid !== '') {
+                $payload['contentSid'] = $contentSid;
+                $payload['contentVariables'] = json_encode($this->buildContentVariables($code), JSON_THROW_ON_ERROR);
+            }
+
+            try {
+                $this->client()->messages->create($toAddress, $payload);
+            } catch (\Throwable $e) {
+                report($e);
+                throw new RuntimeException('Failed to send WhatsApp message: ' . $e->getMessage(), 0, $e);
+            }
+        } else {
+            // Send as SMS. Normalize numbers to E.164 where possible.
+            $fromSms = $this->normalizePhoneNumber($from);
+            $toSms = $this->normalizePhoneNumber($phone);
+
+            $payload = [
+                'from' => $fromSms,
+                'body' => $this->formatOtpMessage($code),
+            ];
+
+            try {
+                $this->client()->messages->create($toSms, $payload);
+            } catch (\Throwable $e) {
+                report($e);
+                throw new RuntimeException('Failed to send SMS message: ' . $e->getMessage(), 0, $e);
+            }
         }
-
-        $this->client()->messages->create($this->formatWhatsappAddress($phone), $payload);
     }
 
     private function client(): TwilioClient
@@ -90,5 +119,22 @@ class TwilioWhatsappService
         }
 
         return 'whatsapp:' . $trimmed;
+    }
+
+    private function normalizePhoneNumber(string $address): string
+    {
+        $trimmed = trim($address);
+        // If already starts with +, assume E.164
+        if (str_starts_with($trimmed, '+')) {
+            return $trimmed;
+        }
+
+        // Strip non-digits and prefix +
+        $digits = preg_replace('/\D+/', '', $trimmed);
+        if ($digits === '') {
+            throw new RuntimeException('Invalid phone number for SMS: ' . $address);
+        }
+
+        return '+' . $digits;
     }
 }
