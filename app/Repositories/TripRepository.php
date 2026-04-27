@@ -10,6 +10,7 @@ use App\Models\Offer;
 use App\Models\Coupon;
 use App\Services\WalletService;
 use App\Services\Payments\PaymentGatewayInterface;
+use App\Services\Payments\PaymentGatewayFactoryInterface;
 use App\Services\NotificationService;
 use App\Jobs\NewTripRetryJob;
 use Illuminate\Support\Facades\DB;
@@ -18,12 +19,13 @@ use App\Support\GeoHash;
 use App\Events\NewTripRequest;
 use App\Events\TripAccepted;
 use App\Events\TripLocked;
+use Illuminate\Support\Facades\Log;
 
 class TripRepository
 {
     public function __construct(
         protected WalletService $walletService,
-        protected PaymentGatewayInterface $paymentGateway,
+        protected PaymentGatewayFactoryInterface $paymentGatewayFactory,
         protected NotificationService $notificationService
     ) {}
 
@@ -81,41 +83,7 @@ class TripRepository
 
             $finalPrice = max(0, $original - $discountAmount);
 
-            $trip = Trip::create([
-                'client_id'      => $user->id,
-                'trip_type_id'   => $tripType->id,
-                'status'         => 'searching_driver',
-                'payment_method' => $data['payment_method'],
-                'distance_km'    => $distanceKm,
-                'base_fare'      => $baseFare,
-                'price_per_km'   => $pricePerKm,
-                'original_price' => $original,
-                'discount_amount' => $discountAmount,
-                'final_price'    => $finalPrice,
-                'offer_id'       => $offerId,
-                'coupon_id'      => $couponId,
-                'negotiation_enabled' => $data['negotiation_enabled'] ?? false,
-                'origin_lat'     => $data['origin_lat'],
-                'origin_lng'     => $data['origin_lng'],
-                'origin_address' => $data['origin_address'] ?? null,
-                'destination_lat' => $data['destination_lat'],
-                'destination_lng' => $data['destination_lng'],
-                'destination_address' => $data['destination_address'] ?? null,
-                'reminder' => $data['reminder'] ?? 0,
-            ]);
-
-            if (!empty($data['waypoints'])) {
-                foreach ($data['waypoints'] as $index => $wp) {
-                    TripWaypoint::create([
-                        'trip_id' => $trip->id,
-                        'order'   => $index + 1,
-                        'lat'     => $wp['lat'],
-                        'lng'     => $wp['lng'],
-                        'address' => $wp['address'] ?? null,
-                    ]);
-                }
-            }
-
+            // compute billing before creating trip to avoid an extra update
             $profitMargin = $tripType->profit_margin ?? 0;
             $driverShare = $finalPrice - ($finalPrice * ($profitMargin / 100));
             $promoDifference = max(0, $original - $finalPrice);
@@ -132,21 +100,72 @@ class TripRepository
                 'coupon_id' => $couponId,
             ];
 
-            $trip->update(['billing_breakdown' => $billing, 'is_paid' => false]);
+            $trip = Trip::create([
+                'client_id'      => $user->id,
+                'trip_type_id'   => $tripType->id,
+                'status'         => 'searching_driver',
+                'payment_method' => $data['payment_method'],
+                'distance_km'    => $distanceKm,
+                'base_fare'      => $baseFare,
+                'price_per_km'   => $pricePerKm,
+                'original_price' => $original,
+                'discount_amount' => $discountAmount,
+                'final_price'    => $finalPrice,
+                'offer_id'       => $offerId,
+                'coupon_id'      => $couponId,
+                'billing_breakdown' => $billing,
+                'driver_credit_amount' => $driverCreditAmount,
+                'is_paid' => false,
+                'negotiation_enabled' => $data['negotiation_enabled'] ?? false,
+                'origin_lat'     => $data['origin_lat'],
+                'origin_lng'     => $data['origin_lng'],
+                'origin_address' => $data['origin_address'] ?? null,
+                'destination_lat' => $data['destination_lat'],
+                'destination_lng' => $data['destination_lng'],
+                'destination_address' => $data['destination_address'] ?? null,
+                'reminder' => $data['reminder'] ?? 0,
+            ]);
+
+            // Bulk insert waypoints to reduce DB calls
+            if (! empty($data['waypoints'])) {
+                $now = now();
+                $rows = [];
+                foreach ($data['waypoints'] as $index => $wp) {
+                    $rows[] = [
+                        'trip_id' => $trip->id,
+                        'order'   => $index + 1,
+                        'lat'     => $wp['lat'],
+                        'lng'     => $wp['lng'],
+                        'address' => $wp['address'] ?? null,
+                        'created_at' => $now,
+                        'updated_at' => $now,
+                    ];
+                }
+
+                if (! empty($rows)) {
+                    TripWaypoint::insert($rows);
+                }
+            }
 
             // Broadcast to nearby drivers
+            // Broadcast to nearby drivers: collect members efficiently and fetch drivers in one query
             $originGeohash = GeoHash::encode($trip->origin_lat, $trip->origin_lng, 7);
             $cells = array_merge([$originGeohash], GeoHash::neighbors($originGeohash));
             $nearbyDrivers = [];
             foreach ($cells as $cell) {
-                $nearbyDrivers = array_merge($nearbyDrivers, Redis::smembers("geohash:drivers:{$cell}"));
+                $members = Redis::smembers("geohash:drivers:{$cell}");
+                if (! empty($members)) {
+                    foreach ($members as $m) {
+                        $nearbyDrivers[] = $m;
+                    }
+                }
             }
-            $nearbyDrivers = array_unique($nearbyDrivers);
+            $nearbyDrivers = array_values(array_unique($nearbyDrivers));
 
-            foreach ($nearbyDrivers as $driverId) {
-                $driver = Driver::find($driverId);
-                if ($driver && $driver->is_online) {
-                    broadcast(new NewTripRequest($trip, $driverId));
+            if (! empty($nearbyDrivers)) {
+                $drivers = Driver::whereIn('id', $nearbyDrivers)->where('is_online', 1)->get();
+                foreach ($drivers as $driver) {
+                    broadcast(new NewTripRequest($trip, $driver->id));
                     $this->notificationService->notifyNewTripRequest($trip, $driver);
                 }
             }
@@ -215,7 +234,12 @@ class TripRepository
                         ],
                     ];
 
-                    $res = $this->paymentGateway->charge($chargePayload);
+                    $gateway = $this->paymentGatewayFactory->get('visa');
+                    if ($gateway) {
+                        $res = $gateway->charge($chargePayload);
+                    } else {
+                        $res = ['success' => false, 'raw' => 'no_payment_gateway_available'];
+                    }
                     if (!empty($res['success']) && $res['success'] === true) {
                         $billing['baymob_transaction_id'] = $res['transaction_id'] ?? null;
                         $billing['baymob_charged_amount'] = $trip->final_price;
@@ -271,7 +295,12 @@ class TripRepository
                         $trip->client->wallet->increment('balance', $billing['wallet_charged']);
                     }
                 } elseif (! empty($billing['baymob_transaction_id'])) {
-                    $this->paymentGateway->refund($billing['baymob_transaction_id'], $billing['baymob_charged_amount'] ?? $trip->final_price);
+                    $gateway = $this->paymentGatewayFactory->get('visa');
+                    if ($gateway) {
+                        $gateway->refund($billing['baymob_transaction_id'], $billing['baymob_charged_amount'] ?? $trip->final_price);
+                    } else {
+                        Log::error('No payment gateway available to process refund: ' . ($billing['baymob_transaction_id'] ?? '')); 
+                    }
                 } elseif ($trip->is_paid) {
                     if ($trip->client && $trip->client->wallet) {
                         $trip->client->wallet->increment('balance', $trip->final_price);
@@ -280,14 +309,14 @@ class TripRepository
 
                 $trip->update(['is_paid' => false, 'paid_at' => null]);
             } catch (\Exception $e) {
-                \Log::error('Failed to refund client on cancel: ' . $e->getMessage());
+                Log::error('Failed to refund client on cancel: ' . $e->getMessage());
             }
 
             // Notify
             broadcast(new \App\Events\TripCancelled($trip))->toOthers();
             $this->notificationService->notifyTripCancelled($trip, 'client');
 
-            try { $client->increment('trips_cancelled_count'); } catch (\Exception $e) { \Log::error($e->getMessage()); }
+            try { $client->increment('trips_cancelled_count'); } catch (\Exception $e) { Log::error($e->getMessage()); }
         } else {
             // After start: charge base fare as cancellation fee
             try {
@@ -295,7 +324,14 @@ class TripRepository
                 if ($trip->client && $trip->client->wallet && $trip->client->wallet->balance >= $fee) {
                     $trip->client->wallet->decrement('balance', $fee);
                 } elseif ($trip->payment_method === 'visa') {
-                    try { $this->paymentGateway->charge(['amount' => $fee, 'currency' => 'Egp', 'description' => 'Cancellation fee', 'customer' => ['id' => $trip->client->id]]); } catch (\Exception $e) { \Log::error($e->getMessage()); }
+                    try {
+                        $gateway = $this->paymentGatewayFactory->get('visa');
+                        if ($gateway) {
+                            $gateway->charge(['amount' => $fee, 'currency' => 'Egp', 'description' => 'Cancellation fee', 'customer' => ['id' => $trip->client->id]]);
+                        } else {
+                            Log::error('No payment gateway available to charge cancellation fee');
+                        }
+                    } catch (\Exception $e) { Log::error($e->getMessage()); }
                 } else {
                     $trip->increment('reminder', $fee);
                 }
@@ -305,7 +341,7 @@ class TripRepository
                     if ($fee > 0) $driverWallet->increment('balance', $fee);
                 }
             } catch (\Exception $e) {
-                \Log::error('Failed to apply cancellation billing: ' . $e->getMessage());
+                Log::error('Failed to apply cancellation billing: ' . $e->getMessage());
             }
 
             broadcast(new \App\Events\TripCancelled($trip))->toOthers();
@@ -336,7 +372,12 @@ class TripRepository
                     $trip->client->wallet->increment('balance', $billing['wallet_charged']);
                 }
             } elseif (! empty($billing['baymob_transaction_id'])) {
-                $this->paymentGateway->refund($billing['baymob_transaction_id'], $billing['baymob_charged_amount'] ?? $trip->final_price);
+                    $gateway = $this->paymentGatewayFactory->get('visa');
+                    if ($gateway) {
+                        $gateway->refund($billing['baymob_transaction_id'], $billing['baymob_charged_amount'] ?? $trip->final_price);
+                    } else {
+                        Log::error('No payment gateway available to process refund: ' . ($billing['baymob_transaction_id'] ?? ''));
+                    }
             } elseif ($trip->is_paid) {
                 if ($trip->client && $trip->client->wallet) {
                     $trip->client->wallet->increment('balance', $trip->final_price);
@@ -345,13 +386,13 @@ class TripRepository
 
             $trip->update(['is_paid' => false, 'paid_at' => null]);
         } catch (\Exception $e) {
-            \Log::error('Failed to refund client on driver cancel: ' . $e->getMessage());
+            Log::error('Failed to refund client on driver cancel: ' . $e->getMessage());
         }
 
         broadcast(new \App\Events\TripCancelled($trip))->toOthers();
         $this->notificationService->notifyTripCancelled($trip, 'driver');
 
-        try { $driver->increment('trips_cancelled_count'); } catch (\Exception $e) { \Log::error($e->getMessage()); }
+        try { $driver->increment('trips_cancelled_count'); } catch (\Exception $e) { Log::error($e->getMessage()); }
 
         return ['status' => true, 'message' => 'Trip cancelled successfully', 'trip_id' => $trip->id];
     }

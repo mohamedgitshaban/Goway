@@ -41,7 +41,7 @@ class CreateWalletsForActiveUsers extends Command
             return 1;
         }
 
-        $query = User::where('status', 'active');
+        $query = User::where('status','!=', 'disactive');
         $total = $query->count();
         $this->info("Found {$total} active users.");
 
