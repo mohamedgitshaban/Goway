@@ -254,15 +254,8 @@ class DriverTripController extends Controller
             'proposed_price' => 'required|numeric|min:1',
         ]);
 
-        if ($trip->driver_id !== $driver->id) {
-            return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
-        }
 
-        if (! $trip->negotiation_enabled) {
-            return response()->json(['status' => false, 'message' => 'Negotiation not allowed'], 400);
-        }
-
-        if (! in_array($trip->status, ['searching_driver', 'driver_assigned', 'driver_arrived'])) {
+        if (! in_array($trip->status, ['searching_driver'])) {
             return response()->json(['status' => false, 'message' => 'Cannot negotiate at this stage'], 400);
         }
 
