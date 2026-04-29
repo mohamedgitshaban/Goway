@@ -92,7 +92,7 @@ class User extends Authenticatable
 
     public function trustedContacts()
     {
-        return $this->hasMany(TrustedContact::class);
+        return $this->hasMany(TrustedContact::class, 'user_id');
     }
 
     /**
