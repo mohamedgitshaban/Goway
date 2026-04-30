@@ -11,7 +11,7 @@ class NegotiationOffer implements ShouldBroadcastNow
 {
     use SerializesModels;
 
-    public function __construct(public Trip $trip) {}
+    public function __construct(public Trip $trip, public $negotiation = null) {}
 
     public function broadcastOn()
     {
@@ -27,6 +27,8 @@ class NegotiationOffer implements ShouldBroadcastNow
     {
         return [
             'trip' =>  new TripResource($this->trip),
+            'negotiation' => $this->negotiation,
+            'driver' => $this->negotiation ? $this->negotiation->driver : null,
             'created_at' => now()->toISOString(),
         ];
     }

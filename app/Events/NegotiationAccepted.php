@@ -12,11 +12,15 @@ class NegotiationAccepted implements ShouldBroadcastNow
 {
     use SerializesModels;
 
-    public function __construct(public Trip $trip) {}
+    public function __construct(public Trip $trip, public $negotiation = null) {}
 
     public function broadcastOn()
     {
-        return new Channel("trip.{$this->trip->id}");
+        $channels = [new Channel("trip.{$this->trip->id}")];
+        if ($this->negotiation) {
+            $channels[] = new Channel("driver.{$this->negotiation->driver_id}");
+        }
+        return $channels;
     }
 
     public function broadcastAs()
@@ -28,6 +32,7 @@ class NegotiationAccepted implements ShouldBroadcastNow
     {
         return [
             'trip'       => new TripResource($this->trip),
+            'negotiation' => $this->negotiation,
             'accepted_at'   => now()->toISOString(),
         ];
     }

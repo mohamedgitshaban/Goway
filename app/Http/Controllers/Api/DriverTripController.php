@@ -264,7 +264,14 @@ class DriverTripController extends Controller
             'negotiation_status' => 'pending',
         ]);
 
-        broadcast(new \App\Events\NegotiationOffer($trip))->toOthers();
+        $negotiation = \App\Models\TripNegotiation::updateOrCreate(
+            ['trip_id' => $trip->id, 'driver_id' => $driver->id],
+            ['proposed_price' => $data['proposed_price'], 'status' => 'pending']
+        );
+        
+        $negotiation->load('driver');
+
+        broadcast(new \App\Events\NegotiationOffer($trip, $negotiation))->toOthers();
 
         $trip->load('client');
         $this->notificationService->notifyNegotiationOffer($trip);
@@ -273,6 +280,7 @@ class DriverTripController extends Controller
             'status' => true,
             'message' => 'Offer sent to client',
             'proposed_price' => $data['proposed_price'],
+            'negotiation' => $negotiation
         ]);
     }
 

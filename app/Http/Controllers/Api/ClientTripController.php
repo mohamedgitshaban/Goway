@@ -183,22 +183,39 @@ class ClientTripController extends Controller
     {
         $client = $request->user();
 
+        $data = $request->validate([
+            'negotiation_id' => 'required|exists:trip_negotiations,id',
+        ]);
+
         if ($trip->client_id !== $client->id) {
             return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
         }
 
-        if ($trip->negotiation_status !== 'pending') {
-            return response()->json(['status' => false, 'message' => 'No pending offer'], 400);
+        if ($trip->status !== 'searching_driver' && $trip->negotiation_status !== 'pending') {
+            return response()->json(['status' => false, 'message' => 'Cannot accept offer at this stage'], 400);
         }
+
+        $negotiation = \App\Models\TripNegotiation::where('id', $data['negotiation_id'])
+            ->where('trip_id', $trip->id)
+            ->firstOrFail();
+
+        $negotiation->update(['status' => 'accepted']);
+        // Reject all other pending negotiations
+        \App\Models\TripNegotiation::where('trip_id', $trip->id)
+            ->where('id', '!=', $negotiation->id)
+            ->update(['status' => 'rejected']);
 
         $trip->update([
             'negotiated_price_before' => $trip->final_price,
-            'negotiated_price_after' => $trip->negotiation_price,
-            'final_price' => $trip->negotiation_price,
+            'negotiated_price_after' => $negotiation->proposed_price,
+            'negotiation_price' => $negotiation->proposed_price,
+            'final_price' => $negotiation->proposed_price,
             'negotiation_status' => 'accepted',
+            'driver_id' => $negotiation->driver_id,
+            'status' => 'driver_assigned', // assuming it goes to driver_assigned
         ]);
 
-        broadcast(new \App\Events\NegotiationAccepted($trip))->toOthers();
+        broadcast(new \App\Events\NegotiationAccepted($trip, $negotiation))->toOthers();
 
         $trip->load('driver');
         $this->notificationService->notifyNegotiationAccepted($trip, 'client');
@@ -207,6 +224,7 @@ class ClientTripController extends Controller
             'status' => true,
             'message' => 'Offer accepted',
             'final_price' => $trip->final_price,
+            'negotiation' => $negotiation,
         ]);
     }
 
@@ -214,15 +232,25 @@ class ClientTripController extends Controller
     {
         $client = $request->user();
 
+        $data = $request->validate([
+            'negotiation_id' => 'required|exists:trip_negotiations,id',
+        ]);
+
         if ($trip->client_id !== $client->id) {
             return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
         }
 
+        $negotiation = \App\Models\TripNegotiation::where('id', $data['negotiation_id'])
+            ->where('trip_id', $trip->id)
+            ->firstOrFail();
+
+        $negotiation->update(['status' => 'rejected']);
+
         $trip->update([
-            'negotiation_status' => 'rejected',
+            'negotiation_status' => 'rejected', // Or pending if they reject one, but keep trip pending overall
         ]);
 
-        broadcast(new \App\Events\NegotiationRejected($trip))->toOthers();
+        broadcast(new \App\Events\NegotiationRejected($trip, $negotiation))->toOthers();
 
         $trip->load('driver');
         $this->notificationService->notifyNegotiationRejected($trip, 'client');
@@ -230,6 +258,7 @@ class ClientTripController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Offer rejected',
+            'negotiation' => $negotiation,
         ]);
     }
     public function counterNegotiation(Request $request, Trip $trip)
