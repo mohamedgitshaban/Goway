@@ -49,6 +49,7 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::post('/logout', [\App\Http\Controllers\Api\DriverAuthController::class, 'logout']);
         Route::get('/profile', [\App\Http\Controllers\Api\DriverAuthController::class, 'profile']);
         Route::put('/profile', [\App\Http\Controllers\Api\DriverAuthController::class, 'updateProfile']);
+        Route::delete('/account', [\App\Http\Controllers\Api\DriverAuthController::class, 'deleteAccount']);
         Route::put('/goOnline', [\App\Http\Controllers\Api\DriverAuthController::class, 'goOnline']);
         Route::put('/goOffline', [\App\Http\Controllers\Api\DriverAuthController::class, 'goOffline']);
         Route::put('/toggleonlinestatus', [\App\Http\Controllers\Api\DriverAuthController::class, 'toggleonlinestatus']);
@@ -122,6 +123,7 @@ Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::post('/logout', [\App\Http\Controllers\Api\ClientAuthController::class, 'logout']);
         Route::get('/profile', [\App\Http\Controllers\Api\ClientAuthController::class, 'profile']);
         Route::put('/profile', [\App\Http\Controllers\Api\ClientAuthController::class, 'updateProfile']);
+        Route::delete('/account', [\App\Http\Controllers\Api\ClientAuthController::class, 'deleteAccount']);
     });
     Route::apiResource('favorite-locations', FavoriteLocationController::class);
     Route::get('/offers', [\App\Http\Controllers\Api\OfferController::class, 'index']);

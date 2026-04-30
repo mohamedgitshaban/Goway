@@ -214,6 +214,22 @@ class ClientAuthController extends Controller
         }
     }
 
+    public function deleteAccount(Request $request)
+    {
+        $user = $request->user();
+
+        // Soft delete the user. The User model uses the SoftDeletes trait,
+        // so this will only set the deleted_at timestamp.
+        // We will not delete the personal_image here to allow for account restoration.
+        $user->tokens()->delete();
+        $user->softDeletes();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Account deleted successfully',
+        ]);
+    }
+
     private function normalizeStoredFilePath($urlOrPath): ?string
     {
         if (! $urlOrPath) {
