@@ -10,6 +10,7 @@ class TripNegotiation extends Model
     use HasFactory;
 
     protected $fillable = [
+        
         'trip_id',
         'driver_id',
         'proposed_price',

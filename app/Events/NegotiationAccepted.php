@@ -18,7 +18,7 @@ class NegotiationAccepted implements ShouldBroadcastNow
     {
         $channels = [new Channel("trip.{$this->trip->id}")];
         if ($this->negotiation) {
-            $channels[] = new Channel("driver.{$this->negotiation->driver_id}");
+            $channels[] = new Channel("driver.requests.{$this->negotiation->driver_id}");
         }
         return $channels;
     }
