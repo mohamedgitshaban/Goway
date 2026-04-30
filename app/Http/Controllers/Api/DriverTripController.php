@@ -173,6 +173,9 @@ class DriverTripController extends Controller
 
     public function complete(Request $request, Trip $trip)
     {
+        $data = $request->validate([
+            'cost' => 'nullable|numeric|min:0',
+        ]);
         $driver = $request->user();
 
         if ($driver->usertype !== 'driver') {
@@ -186,12 +189,22 @@ class DriverTripController extends Controller
         if ($trip->status !== 'in_progress') {
             return response()->json(['status' => false, 'message' => 'Trip cannot be completed at this stage'], 400);
         }
-
+        if ($trip->payment_method === 'cash') {
+            $profitMargin = $trip->tripType?->profit_margin ?? 0;
+            $driverShare = $trip->final_price - ($trip->final_price * ($profitMargin / 100));
+            $driverWallet = $driver->wallet()->first() ?: $driver->wallet()->create(['balance' => 0]);
+            $driverWallet->decrement('balance', $driverShare);
+        }
+        if (isset($data['cost'])) {
+            $trip->client->wallet()->increment('balance', $data['cost']-$trip->final_price);
+        }
         $startedAt = $trip->started_at;
         $completedAt = now();
         $durationMinutes = $startedAt ? $startedAt->diffInMinutes($completedAt) : 0;
 
         $trip->update([
+             'status' => 'paid',
+            'paid_at' => now(),
             'status' => 'completed',
             'completed_at' => $completedAt,
             'duration_minutes' => $durationMinutes,
