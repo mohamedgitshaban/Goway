@@ -220,7 +220,7 @@ class DriverTripController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Trip completed successfully',
-            'trip_id' => $trip,
+            'trip' => $trip,
             'duration_minutes' => $durationMinutes,
             'trip_channel' => "trip.{$trip->id}",
         ]);
