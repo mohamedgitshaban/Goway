@@ -37,7 +37,7 @@ class DriverTripController extends Controller
             $statusCode = 400;
         }
 
-        return response()->json(['status' => false, 'message' => $message], $statusCode);
+        return response()->json(['status' => false, 'message' => $message , 'trip' => $trip], $statusCode);
     }
 
     public function index(Request $request)
