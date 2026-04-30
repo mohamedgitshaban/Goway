@@ -163,13 +163,14 @@ class DriverVehicleController extends Controller
         if (! $vehicle) {
             return response()->json(['message' => 'Vehicle not found'], 404);
         }
-
+        if ($vehicle->status !== Vehicle::STATUS_APPROVED) {
+            return response()->json(['message' => 'Only approved vehicles can be activated'], 400);
+        }
         // deactivate other vehicles
         Vehicle::where('driver_id', $user->id)->update(['isactive' => false]);
 
         // activate this one
         $vehicle->isactive = true;
-        $vehicle->status = 'active';
         $vehicle->save();
 
         return response()->json([

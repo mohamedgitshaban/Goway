@@ -6,6 +6,9 @@ use Illuminate\Database\Eloquent\Model;
 
 class Vehicle extends Model
 {
+    const STATUS_PENDING = 'pending';
+    const STATUS_APPROVED = 'approved';
+    const STATUS_REJECTED = 'rejected';
     protected $fillable = [
         'driver_id',
         'trip_type_id',
