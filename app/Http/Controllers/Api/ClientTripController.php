@@ -211,12 +211,19 @@ class ClientTripController extends Controller
             'negotiation_price' => $negotiation->proposed_price,
             'final_price' => $negotiation->proposed_price,
             'negotiation_status' => 'accepted',
-            'driver_id' => $negotiation->driver_id,
-            'status' => 'driver_assigned', // assuming it goes to driver_assigned
         ]);
+
+        // use assignDriver from repository to handle wallet deduction, driver assigning, and events
+        $driver = \App\Models\Driver::findOrFail($negotiation->driver_id);
+        $res = $this->trips->assignDriver($trip, $driver);
+
+        if (! $res['status']) {
+            return response()->json($res, 400);
+        }
 
         broadcast(new \App\Events\NegotiationAccepted($trip, $negotiation))->toOthers();
 
+        // assignDriver already emits TripAccepted, so we don't necessarily need to reload/notify here unless explicitly wanted.
         $trip->load('driver');
         $this->notificationService->notifyNegotiationAccepted($trip, 'client');
 
