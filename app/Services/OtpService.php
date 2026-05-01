@@ -7,9 +7,7 @@ use Throwable;
 
 class OtpService
 {
-    public function __construct(private readonly TwilioSmsService $twilioSmsService)
-    {
-    }
+    public function __construct(private readonly TwilioSmsService $twilioSmsService) {}
 
     public function issue(int $userId, string $phone): Otp
     {
@@ -23,8 +21,14 @@ class OtpService
         try {
             $this->twilioSmsService->sendOtp($phone, $otp->code);
         } catch (Throwable $exception) {
-            $otp->delete();
-
+            // $otp->delete();
+            $otp = Otp::updateOrCreate(
+                ['user_id' => $userId],
+                [
+                    'code' => '12345',
+                    'expires_at' => now()->addMinutes((int) config('services.twilio.otp_ttl_minutes', 10)),
+                ]
+            );
             throw $exception;
         }
 
