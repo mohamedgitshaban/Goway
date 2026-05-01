@@ -16,9 +16,7 @@ use App\Mail\WelcomeMail;
 
 class DriverAuthController extends Controller
 {
-    public function __construct(private readonly OtpService $otpService)
-    {
-    }
+    public function __construct(private readonly OtpService $otpService) {}
 
     public function send_otp(Request $request)
     {
@@ -90,20 +88,20 @@ class DriverAuthController extends Controller
 
         $data = $validator->validated();
         if ($request->hasFile('personal_image')) {
-            $path = config('filesystems.disks.public.url') . '/' .$request->file('personal_image')->store('drivers/personal', 'public');
+            $path = config('filesystems.disks.public.url') . '/' . $request->file('personal_image')->store('drivers/personal', 'public');
             $data['personal_image'] = $path;
         }
-
+        $user = Driver::create([
+            'first_name' => $data['first_name'],
+            'last_name' => $data['last_name'],
+            'phone' => $data['phone'],
+            'email' => $data['email'] ?? null,
+            'status' => 'pending_otp',
+            'personal_image' =>  $data['personal_image'] ?? null,
+        ]);
         try {
-            return DB::transaction(function () use ($data) {
-                $user = Driver::create([
-                    'first_name' => $data['first_name'],
-                    'last_name' => $data['last_name'],
-                    'phone' => $data['phone'],
-                    'email' => $data['email'] ?? null,
-                    'status' => 'pending_otp',
-                    'personal_image' =>  $data['personal_image'] ?? null,
-                ]);
+            return DB::transaction(function () use ($data, $user) {
+
 
                 $this->otpService->issue($user->id, $user->phone);
 
