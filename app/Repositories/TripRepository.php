@@ -67,7 +67,11 @@ class TripRepository
 
             $offer = Offer::active()->where('trip_type_id', $tripType->id)->first();
             if ($offer) {
-                $offerDiscount = $original * 0.2;
+                if ($offer->discount_type === 'percentage') {
+                    $offerDiscount = ($original * ($offer->discount_value / 100)) > $offer->max_discount ? $offer->max_discount : ($original * ($offer->discount_value / 100));
+                } else {
+                    $offerDiscount = $offer->discount_value;
+                }
                 $discountAmount += $offerDiscount;
                 $offerId = $offer->id;
             }
@@ -75,7 +79,11 @@ class TripRepository
             if (!empty($data['coupon_code'])) {
                 $coupon = Coupon::active()->where('code', $data['coupon_code'])->first();
                 if ($coupon && $coupon->isValidFor($user, $tripType)) {
-                    $couponDiscount = 10;
+                    if ($coupon->discount_type === 'percentage') {
+                        $couponDiscount = ($original * ($coupon->discount_value / 100)) > $coupon->max_discount ? $coupon->max_discount : ($original * ($coupon->discount_value / 100));
+                    } else {
+                        $couponDiscount = $coupon->discount_value;
+                    }
                     $discountAmount += $couponDiscount;
                     $couponId = $coupon->id;
                 }
