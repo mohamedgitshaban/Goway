@@ -46,9 +46,9 @@ class TripResource extends JsonResource
             'driver_rate' => $this->driverRating?->rating,
             
             // 🔵 Relations
-            'client' => new ClientResource($this->client),
+            'client' => $this->client ? tap(new ClientResource($this->client), function($res) { $res->without_trip = true; }) : null,
             
-            'driver' => new DriverResource($this->driver),
+            'driver' => $this->driver ? tap(new DriverResource($this->driver), function($res) { $res->without_trip = true; }) : null,
             'trip_type' => new TripTypeResource($this->tripType),
             'waypoints' => TripWaypointResource::collection($this->waypoints),
             'offer' => new OfferResource($this->offer),
