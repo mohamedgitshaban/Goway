@@ -34,6 +34,7 @@ return [
     'twilio' => [
         'sid' => env('TWILIO_SID'),
         'token' => env('TWILIO_AUTH_TOKEN'),
+        'sms_from' => env('TWILIO_SMS_FROM'),
         'whatsapp_from' => env('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886'),
         'whatsapp_content_sid' => env('TWILIO_WHATSAPP_CONTENT_SID'),
         'default_country_code' => env('TWILIO_DEFAULT_COUNTRY_CODE'),
