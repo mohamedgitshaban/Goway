@@ -8,6 +8,10 @@ class ClientResource extends JsonResource
 {
     public function toArray($request)
     {
+        $activeTrip = \App\Models\Trip::where('client_id', $this->id)
+            ->whereIn('status', ['pending', 'searching_driver', 'driver_assigned', 'driver_arrived', 'in_progress'])
+            ->first();
+
         return [
             'id'         => $this->id,
             'first_name' => $this->first_name,
@@ -22,6 +26,8 @@ class ClientResource extends JsonResource
                 'balance' => (float) $this->wallet->balance,
             ] : null,
             'status'     => $this->status,
+            'current_trip' => $activeTrip ? new TripResource($activeTrip) : null,
+            
         ];
     }
 }

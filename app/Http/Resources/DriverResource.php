@@ -8,6 +8,9 @@ class DriverResource extends JsonResource
 {
     public function toArray($request)
     {
+                $activeTrip = \App\Models\Trip::where('driver_id', $this->id)
+            ->whereIn('status', ['pending', 'searching_driver', 'driver_assigned', 'driver_arrived', 'in_progress'])
+            ->first();
         $doc = $this->driverDocument; // one-to-one relation
         return [
             'id'         => $this->id,
@@ -37,6 +40,7 @@ class DriverResource extends JsonResource
                 'reject_reason'     => $doc->reject_reason,
             ] : null,
                 'vehicles' => VehicleResource::collection($this->vehicles),
+                'current_trip' => $activeTrip ? new TripResource($activeTrip) : null,
         ];
     }
 }
