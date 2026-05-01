@@ -99,11 +99,8 @@ class ClientAuthController extends Controller
         ]);
 
         try {
-            return DB::transaction(function () use ($data, $user) {
-                $this->otpService->issue($user->id, $user->phone);
+                            $this->otpService->issue($user->id, $user->phone);
 
-                return response()->json($user, 201);
-            });
         } catch (\Throwable $exception) {
             report($exception);
 
