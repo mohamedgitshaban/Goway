@@ -37,6 +37,7 @@ class DriverDocument extends Model
 
     protected $casts = [
         'age' => 'integer',
+        'birth_date' => 'date',
     ];
 
     /**
