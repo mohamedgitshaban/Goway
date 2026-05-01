@@ -210,6 +210,8 @@ class DriverTripController extends Controller
             'duration_minutes' => $durationMinutes,
         ]);
 
+        $trip->driver()->update(['is_idle' => true]);
+
         broadcast(new \App\Events\TripCompleted($trip))->toOthers();
 
         $trip->load(['client', 'driver']);

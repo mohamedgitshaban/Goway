@@ -171,7 +171,7 @@ class TripRepository
             $nearbyDrivers = array_values(array_unique($nearbyDrivers));
 
             if (! empty($nearbyDrivers)) {
-                $drivers = Driver::whereIn('id', $nearbyDrivers)->where('is_online', 1)->whereHas('vehicle', function ($query) use ($trip) {
+                $drivers = Driver::whereIn('id', $nearbyDrivers)->where('is_online', 1)->where('is_idle', 1)->whereHas('vehicle', function ($query) use ($trip) {
                     $query->where('is_active', 1);
                     $query->where('trip_type_id', $trip->trip_type_id);
                 })->get();
@@ -207,6 +207,7 @@ class TripRepository
                 return ['status' => false, 'message' => 'Driver already has an active trip'];
             }
 
+            $driver->update(['is_idle' => false]);
             $trip->update(['driver_id' => $driver->id, 'status' => 'driver_assigned', 'driver_assigned_at' => now()]);
 
             // Try to collect payment at accept
@@ -289,6 +290,10 @@ class TripRepository
 
         $trip->update(['status' => 'cancelled_by_client', 'cancelled_at' => now(), 'cancelled_by' => 'client', 'cancel_reason' => $reason, 'cancel_description' => $description]);
 
+        if ($trip->driver_id) {
+            $trip->driver()->update(['is_idle' => true]);
+        }
+
         if ($beforeStart) {
             try {
                 $billing = $trip->billing_breakdown ?? [];
@@ -365,6 +370,8 @@ class TripRepository
     public function driverCancel(Trip $trip, $driver, $reason = null, $description = null): array
     {
         $trip->update(['status' => 'cancelled_by_driver', 'cancelled_at' => now(), 'cancelled_by' => 'driver', 'cancel_reason' => $reason, 'cancel_description' => $description]);
+
+        $trip->driver()->update(['is_idle' => true]);
 
         try {
             $billing = $trip->billing_breakdown ?? [];

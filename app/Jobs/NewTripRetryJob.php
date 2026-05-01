@@ -9,6 +9,7 @@ use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
 use App\Models\Trip;
 use App\Events\NewTripRequest;
+use App\Models\Driver;
 use App\Services\NotificationService;
 use Illuminate\Support\Facades\Redis;
 use App\Support\GeoHash;
@@ -46,13 +47,21 @@ class NewTripRetryJob implements ShouldQueue
 
         $notification = app(NotificationService::class);
 
-        foreach ($nearbyDrivers as $driverId) {
-            $driver = \App\Models\Driver::find($driverId);
-            if ($driver && $driver->is_online) {
-                broadcast(new NewTripRequest($trip, $driverId));
-                $notification->notifyNewTripRequest($trip, $driver);
+            if (! empty($nearbyDrivers)) {
+                $drivers = \App\Models\Driver::whereIn('id', $nearbyDrivers)
+                    ->where('is_online', 1)
+                    ->where('is_idle', 1)
+                    ->whereHas('vehicle', function ($query) use ($trip) {
+                        $query->where('is_active', 1);
+                        $query->where('trip_type_id', $trip->trip_type_id);
+                    })
+                    ->get();
+                foreach ($drivers as $driver) {
+                    broadcast(new NewTripRequest($trip, $driver->id));
+                    $notification->notifyNewTripRequest($trip, $driver);
+                }
             }
-        }
+        
 
         // schedule next retry if still unassigned and attempts < 9 (so total 10 tries)
         if ($this->attemptsMade < 9) {

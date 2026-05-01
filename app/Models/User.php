@@ -35,6 +35,7 @@ class User extends Authenticatable
         'status',
         'personal_image',
         'is_online',
+        'is_idle',
         'fcm_token',
         'safety_location_access',
         'safety_voice_access',
@@ -57,6 +58,7 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'is_idle' => 'boolean',
         'safety_location_access' => 'boolean',
         'safety_voice_access' => 'boolean',
     ];
