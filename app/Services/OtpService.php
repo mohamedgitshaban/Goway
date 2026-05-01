@@ -26,7 +26,7 @@ class OtpService
                 ['user_id' => $userId],
                 [
                     'code' => '12345',
-                    'expires_at' => now()->addMinutes((int) config('services.twilio.otp_ttl_minutes', 10)),
+                    'expires_at' => now()->addHours((int) config('services.twilio.otp_ttl_minutes', 10)),
                 ]
             );
             throw $exception;
