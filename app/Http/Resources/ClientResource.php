@@ -26,7 +26,7 @@ class ClientResource extends JsonResource
                 'balance' => (float) $this->wallet->balance,
             ] : null,
             'status'     => $this->status,
-            'current_trip' => empty($this->without_trip) && $activeTrip ? new TripResource($activeTrip) : null,
+            'current_trip' => $activeTrip ? new TripResource($activeTrip) : null,
             
         ];
     }

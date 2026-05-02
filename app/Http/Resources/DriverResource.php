@@ -40,7 +40,7 @@ class DriverResource extends JsonResource
                 'reject_reason'     => $doc->reject_reason,
             ] : null,
                 'vehicles' => VehicleResource::collection($this->vehicles),
-                'current_trip' => empty($this->without_trip) && $activeTrip ? new TripResource($activeTrip) : null,
+                'current_trip' => $activeTrip ? new TripResource($activeTrip) : null,
         ];
     }
 }
