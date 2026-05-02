@@ -206,7 +206,7 @@ class DriverAuthController extends Controller
                 $this->deleteStoredFile($driver->profile_image);
             }
 
-            $driver->profile_image = config('filesystems.disks.public.url') . '/' . $request->file('profile_image')->store('drivers/profile', 'public');
+            $driver->personal_image = config('filesystems.disks.public.url') . '/' . $request->file('profile_image')->store('drivers/profile', 'public');
         }
 
 
