@@ -178,7 +178,7 @@ class DriverAuthController extends Controller
         $this->handleMultipart($request);
         $driver = $request->user();
 
-        $personalImageRules = $request->hasFile('personal_image')
+        $personalImageRules = $request->hasFile('profile_image')
             ? 'sometimes|file|image|max:5120'
             : 'sometimes|nullable|string|max:2048';
         $validator = Validator::make($request->all(), [
