@@ -49,7 +49,10 @@ class VehicleApprovalController extends Controller
         }
 
         $vehicle->status = 'approved';
-        $vehicle->isactive = false;
+        
+        $vehicleCount = Vehicle::where('driver_id', $vehicle->driver_id)->count();
+        $vehicle->isactive = ($vehicleCount === 1);
+        
         $vehicle->rejection_reason = null;
         $vehicle->save();
 
