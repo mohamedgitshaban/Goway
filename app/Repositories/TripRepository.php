@@ -171,7 +171,7 @@ class TripRepository
             $nearbyDrivers = array_values(array_unique($nearbyDrivers));
 
             if (! empty($nearbyDrivers)) {
-                $drivers = Driver::whereIn('id', $nearbyDrivers)->where('is_online', 1)->where('is_idle', 1)->whereHas('vehicle', function ($query) use ($trip) {
+                $drivers = Driver::whereIn('id', $nearbyDrivers)->where('is_online', 1)->where('is_idle', 1)->whereHas('vehicles', function ($query) use ($trip) {
                     $query->where('is_active', 1);
                     $query->where('trip_type_id', $trip->trip_type_id);
                 })->get();
