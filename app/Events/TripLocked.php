@@ -10,7 +10,7 @@ class TripLocked implements ShouldBroadcastNow
 {
     use SerializesModels;
 
-    public function __construct(public int $tripId) {}
+    public function __construct(public int $tripId, public ?int $driverId = null) {}
 
     public function broadcastOn()
     {
@@ -25,7 +25,8 @@ class TripLocked implements ShouldBroadcastNow
     public function broadcastWith()
     {
         return [
-            'trip_id' => $this->tripId
+            'trip_id' => $this->tripId,
+            'driver_id' => $this->driverId,
         ];
     }
 }

@@ -275,7 +275,7 @@ class TripRepository
 
             // Broadcast + notify
             broadcast(new TripAccepted($trip))->toOthers();
-            broadcast(new TripLocked($trip->id))->toOthers();
+            broadcast(new TripLocked($trip->id, $trip->driver_id))->toOthers();
             $trip->load('client');
             $this->notificationService->notifyTripAccepted($trip);
 
@@ -336,7 +336,7 @@ class TripRepository
         }
         elseif($trip->status === 'searching_driver') {
             // If still searching for driver, just notify without charging
-            broadcast(new \App\Events\TripLocked($trip->id))->toOthers();
+            broadcast(new \App\Events\TripLocked($trip->id, $trip->driver_id, $trip->client_id))->toOthers();
         }
         else {
             // After start: charge base fare as cancellation fee
