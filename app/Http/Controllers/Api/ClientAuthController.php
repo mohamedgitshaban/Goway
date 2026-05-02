@@ -22,7 +22,9 @@ class ClientAuthController extends Controller
 {
     use HandlesMultipart;
 
-    public function __construct(private readonly OtpService $otpService) {}
+    public function __construct(private readonly OtpService $otpService)
+    {
+    }
 
     public function send_otp(Request $request)
     {
@@ -90,17 +92,21 @@ class ClientAuthController extends Controller
         }
 
         $data = $validator->validated();
-        $user = Client::create([
-            'first_name' => $data['first_name'],
-            'last_name' => $data['last_name'],
-            'phone' => $data['phone'],
-            'email' => $data['email'] ?? null,
-            'status' => 'pending_otp',
-        ]);
 
         try {
-                            $this->otpService->issue($user->id, $user->phone);
+            return DB::transaction(function () use ($data) {
+                $user = Client::create([
+                    'first_name' => $data['first_name'],
+                    'last_name' => $data['last_name'],
+                    'phone' => $data['phone'],
+                    'email' => $data['email'] ?? null,
+                    'status' => 'pending_otp',
+                ]);
 
+                $this->otpService->issue($user->id, $user->phone);
+
+                return response()->json($user, 201);
+            });
         } catch (\Throwable $exception) {
             report($exception);
 
@@ -149,11 +155,11 @@ class ClientAuthController extends Controller
         return response()->json(['message' => 'Logged out']);
     }
     public function profile(Request $request)
-    {
-        $client = $request->user(); // authenticated client
+{
+    $client = $request->user(); // authenticated client
 
-        return response()->json(new ClientResource($client));
-    }
+    return response()->json(new ClientResource($client));
+}
     public function updateProfile(Request $request)
     {
         $this->handleMultipart($request);
@@ -237,4 +243,5 @@ class ClientAuthController extends Controller
 
         return ltrim($urlOrPath, '/');
     }
+
 }
