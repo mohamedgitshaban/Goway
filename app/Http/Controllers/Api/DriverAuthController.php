@@ -172,6 +172,7 @@ class DriverAuthController extends Controller
     }
     public function updateProfile(Request $request)
     {
+        $this->handleMultipart($request);
         $driver = $request->user();
 
         $personalImageRules = $request->hasFile('personal_image')
@@ -196,16 +197,15 @@ class DriverAuthController extends Controller
         $driver->email      = $request->email;
 
         // Handle profile image upload
-        if ($request->hasFile('profile_image')) {
-
+ if ($request->hasFile('profile_image') && $request->file('profile_image')->isValid()) {
             // delete old image if exists
-            if ($driver->profile_image && file_exists(storage_path('app/public/' . $driver->profile_image))) {
-                unlink(storage_path('app/public/' . $driver->profile_image));
+            if ($driver->profile_image) {
+                $this->deleteStoredFile($driver->profile_image);
             }
 
-            $path = $request->file('profile_image')->store('drivers/profile', 'public');
-            $driver->profile_image = $path;
+            $driver->profile_image = config('filesystems.disks.public.url') . '/' . $request->file('profile_image')->store('drivers/profile', 'public');
         }
+
 
         $driver->save();
 
