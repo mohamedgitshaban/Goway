@@ -180,6 +180,9 @@ class DriverDocumentController extends Controller
         $existingDocument = optional(auth()->user())->driverDocument;
         $existingVehicle = Vehicle::where('driver_id', optional(auth()->user())->id)->first();
 
+        $tripType = \App\Models\TripType::find($request->trip_type_id);
+        $needsLicence = $tripType ? $tripType->need_licence : false;
+
         $validator = Validator::make($request->all(), [
             'age' => 'required|integer|min:10|max:80',
             'birth_date' => 'required|date',
@@ -195,7 +198,7 @@ class DriverDocumentController extends Controller
             'vehicle_model_id' => 'required|integer|exists:vehicle_models,id',
             'color' => 'required|string',
             'year' => 'required|integer|min:1900|max:' . date('Y'),
-            'plate_number' => 'required|string',
+            'plate_number' => $needsLicence ? 'required|string' : 'nullable',
             'vehicle_license_image' => $this->fileOrPathRule($request, 'vehicle_license_image'),
             'car_front_image' => $this->fileOrPathRule($request, 'car_front_image'),
             'car_back_image' => $this->fileOrPathRule($request, 'car_back_image'),
@@ -203,7 +206,7 @@ class DriverDocumentController extends Controller
             'car_right_image' => $this->fileOrPathRule($request, 'car_right_image'),
         ]);
 
-        $validator->after(function ($validator) use ($request, $existingDocument, $existingVehicle) {
+        $validator->after(function ($validator) use ($request, $existingDocument, $existingVehicle , $needsLicence) {
 
             $age = (int) $request->age;
 
@@ -235,7 +238,7 @@ class DriverDocumentController extends Controller
             }
 
             if (
-                Trip::find($request->trip_type_id)?->need_licence &&
+                $needsLicence &&
                 ! $this->hasUploadedFileOrPath($request, 'vehicle_license_image', $existingVehicle?->vehicle_license_image)
             ) {
                 $validator->errors()->add('vehicle_license_image', 'Vehicle license image is required.');
