@@ -286,7 +286,7 @@ class TripRepository
     public function clientCancel(Trip $trip, $client, $reason = null, $description = null): array
     {
         // Decide if cancellation before start or after
-        $beforeStart = in_array($trip->status, ['searching_driver', 'driver_assigned', 'driver_arrived']);
+        $beforeStart = in_array($trip->status, ['driver_assigned', 'driver_arrived']);
 
         $trip->update(['status' => 'cancelled_by_client', 'cancelled_at' => now(), 'cancelled_by' => 'client', 'cancel_reason' => $reason, 'cancel_description' => $description]);
 
@@ -333,7 +333,12 @@ class TripRepository
             $this->notificationService->notifyTripCancelled($trip, 'client');
 
             try { $client->increment('trips_cancelled_count'); } catch (\Exception $e) { Log::error($e->getMessage()); }
-        } else {
+        }
+        elseif($trip->status === 'searching_driver') {
+            // If still searching for driver, just notify without charging
+            broadcast(new \App\Events\TripLocked($trip->id))->toOthers();
+        }
+        else {
             // After start: charge base fare as cancellation fee
             try {
                 $fee = (float) ($trip->base_fare ?? 0);
