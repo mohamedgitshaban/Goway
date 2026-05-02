@@ -13,9 +13,12 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redis;
 use App\Mail\WelcomeMail;
+use App\Traits\HandlesMultipart;
 
 class DriverAuthController extends Controller
 {
+    use HandlesMultipart;
+
     public function __construct(private readonly OtpService $otpService) {}
 
     public function send_otp(Request $request)
