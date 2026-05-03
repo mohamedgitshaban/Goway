@@ -22,9 +22,7 @@ class ClientAuthController extends Controller
 {
     use HandlesMultipart;
 
-    public function __construct(private readonly OtpService $otpService)
-    {
-    }
+    public function __construct(private readonly OtpService $otpService) {}
 
     public function send_otp(Request $request)
     {
@@ -38,13 +36,14 @@ class ClientAuthController extends Controller
 
         $user = Client::where('phone', $request->input('phone'))->first();
         if (! $user) return response()->json(['message' => 'User not found'], 404);
+        $this->otpService->issue($user->id, $user->phone);
 
-        try {
-            $this->otpService->issue($user->id, $user->phone);
-        } catch (\Throwable $exception) {
-            report($exception);
-            return response()->json(['message' => 'Unable to send OTP at the moment'], 502);
-        }
+        // try {
+        //     $this->otpService->issue($user->id, $user->phone);
+        // } catch (\Throwable $exception) {
+        //     report($exception);
+        //     return response()->json(['message' => 'Unable to send OTP at the moment'], 502);
+        // }
 
         return response()->json(['message' => 'OTP sent to phone']);
     }
@@ -92,26 +91,36 @@ class ClientAuthController extends Controller
         }
 
         $data = $validator->validated();
+        $user = Client::create([
+            'first_name' => $data['first_name'],
+            'last_name' => $data['last_name'],
+            'phone' => $data['phone'],
+            'email' => $data['email'] ?? null,
+            'status' => 'pending_otp',
+        ]);
 
-        try {
-            return DB::transaction(function () use ($data) {
-                $user = Client::create([
-                    'first_name' => $data['first_name'],
-                    'last_name' => $data['last_name'],
-                    'phone' => $data['phone'],
-                    'email' => $data['email'] ?? null,
-                    'status' => 'pending_otp',
-                ]);
+        $this->otpService->issue($user->id, $user->phone);
 
-                $this->otpService->issue($user->id, $user->phone);
+        return response()->json($user, 201);
+        // try {
+        //     return DB::transaction(function () use ($data) {
+        //         $user = Client::create([
+        //             'first_name' => $data['first_name'],
+        //             'last_name' => $data['last_name'],
+        //             'phone' => $data['phone'],
+        //             'email' => $data['email'] ?? null,
+        //             'status' => 'pending_otp',
+        //         ]);
 
-                return response()->json($user, 201);
-            });
-        } catch (\Throwable $exception) {
-            report($exception);
+        //         $this->otpService->issue($user->id, $user->phone);
 
-            return response()->json(['message' => 'Unable to complete registration at the moment'], 502);
-        }
+        //         return response()->json($user, 201);
+        //     });
+        // } catch (\Throwable $exception) {
+        //     report($exception);
+
+        //     return response()->json(['message' => 'Unable to complete registration at the moment'], 502);
+        // }
     }
     public function activatePhone(Request $request)
     {
@@ -136,7 +145,7 @@ class ClientAuthController extends Controller
 
         // Send welcome email
         if ($user->email) {
-            Mail::to($user->email)->queue(new WelcomeMail($user));
+            // Mail::to($user->email)->queue(new WelcomeMail($user));
         }
 
         return response()->json([
@@ -155,11 +164,11 @@ class ClientAuthController extends Controller
         return response()->json(['message' => 'Logged out']);
     }
     public function profile(Request $request)
-{
-    $client = $request->user(); // authenticated client
+    {
+        $client = $request->user(); // authenticated client
 
-    return response()->json(new ClientResource($client));
-}
+        return response()->json(new ClientResource($client));
+    }
     public function updateProfile(Request $request)
     {
         $this->handleMultipart($request);
@@ -243,5 +252,4 @@ class ClientAuthController extends Controller
 
         return ltrim($urlOrPath, '/');
     }
-
 }

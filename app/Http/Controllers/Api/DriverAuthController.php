@@ -33,13 +33,14 @@ class DriverAuthController extends Controller
 
         $user = Driver::where('phone', $request->input('phone'))->first();
         if (! $user) return response()->json(['message' => 'User not found'], 404);
+        $this->otpService->issue($user->id, $user->phone);
 
-        try {
-            $this->otpService->issue($user->id, $user->phone);
-        } catch (\Throwable $exception) {
-            report($exception);
-            return response()->json(['message' => 'Unable to send OTP at the moment'], 502);
-        }
+        // try {
+        //     $this->otpService->issue($user->id, $user->phone);
+        // } catch (\Throwable $exception) {
+        //     report($exception);
+        //     return response()->json(['message' => 'Unable to send OTP at the moment'], 502);
+        // }
 
         return response()->json(['message' => 'OTP sent to phone']);
     }
