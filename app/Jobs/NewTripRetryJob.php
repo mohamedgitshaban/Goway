@@ -75,7 +75,7 @@ class NewTripRetryJob implements ShouldQueue
             $trip->cancel_reason = 'no_drivers_found';
             $trip->save();
 
-            broadcast(new \App\Events\TripCancelledBySystem($trip));
+            broadcast(new \App\Events\TripCancelledBySystem($trip, $nearbyDrivers));
         }
     }
 }

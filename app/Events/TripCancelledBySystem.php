@@ -12,11 +12,21 @@ class TripCancelledBySystem implements ShouldBroadcastNow
 {
     use SerializesModels;
 
-    public function __construct(public Trip $trip) {}
+    public function __construct(
+        public Trip $trip, 
+        public array $driverIdsToNotify = []
+    ) {}
 
     public function broadcastOn()
     {
-        return new Channel("trip.{$this->trip->id}");
+        $channels = [new Channel("trip.{$this->trip->id}")];
+
+        // Also broadcast to all nearby drivers' personal channels so their apps can remove the UI popup
+        foreach ($this->driverIdsToNotify as $driverId) {
+            $channels[] = new Channel("driver.requests.{$driverId}");
+        }
+
+        return $channels;
     }
 
     public function broadcastAs()

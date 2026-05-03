@@ -334,8 +334,22 @@ class TripRepository
             try { $client->increment('trips_cancelled_count'); } catch (\Exception $e) { Log::error($e->getMessage()); }
         }
         elseif($trip->status === 'searching_driver') {
+            // Find nearby drivers to notify them the trip is no longer available
+            $originGeohash = GeoHash::encode($trip->origin_lat, $trip->origin_lng, 5);
+            $cells = array_merge([$originGeohash], GeoHash::neighbors($originGeohash));
+            $nearbyDrivers = [];
+            foreach ($cells as $cell) {
+                $members = Redis::smembers("geohash:drivers:{$cell}");
+                if (!empty($members)) {
+                    foreach ($members as $m) {
+                        $nearbyDrivers[] = $m;
+                    }
+                }
+            }
+            $nearbyDrivers = array_values(array_unique($nearbyDrivers));
+
             // If still searching for driver, just notify without charging
-            broadcast(new \App\Events\TripLocked($trip->id, $trip->driver_id, $trip->client_id))->toOthers();
+            broadcast(new \App\Events\TripLocked($trip->id, $trip->driver_id, $nearbyDrivers))->toOthers();
         }
         else {
             // After start: charge base fare as cancellation fee
