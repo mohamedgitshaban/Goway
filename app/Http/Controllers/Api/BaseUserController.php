@@ -90,7 +90,12 @@ class BaseUserController extends Controller
         if (! $user) {
             return response()->json(['message' => 'User not found'], 404);
         }
-
+        if ($user->status === 'disactive') {
+            return response()->json(['message' => 'User is already disactive'], 400);
+        }
+        if ($user->status !== 'active') {
+            return response()->json(['message' => 'Only active users can be suspended'], 400);
+        }
         $user->status = 'disactive';
         $user->save();
 
