@@ -38,11 +38,12 @@ class CarsModelsSeeder extends Seeder
                     $brand->trip_type_id = $tripTypeId;
                     $brand->save();
                 }
-
+                
                 VehicleModel::updateOrCreate(
                     ['name' => $brandName . ' ' . $item['name'], 'min_year' => $item['min_year'], 'max_year' => $item['max_year']],
                     [
                         'vehicle_brand_id' => $brand->id,
+                        'trip_type_id'     => $brand->trip_type_id, // use brand's trip type to ensure consistency
                         'min_year'         => $item['min_year'],
                         'max_year'         => $item['max_year'],
                     ]

@@ -9,6 +9,7 @@ class VehicleModel extends Model
     protected $fillable = [
         'vehicle_brand_id',
         'name',
+        'trip_type_id',
         'min_year',
         'max_year',
     ];

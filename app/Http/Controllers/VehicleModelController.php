@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\TripType;
 use App\Models\VehicleBrand;
+use Illuminate\Http\Request;
 
 class VehicleModelController extends Controller
 {
@@ -15,15 +16,16 @@ class VehicleModelController extends Controller
     }
 
     // return all models for a brand
-    public function brandModels($brandId)
+    public function brandModels($brandId, Request $request)
     {
         $models = \App\Models\VehicleModel::where('vehicle_brand_id', $brandId)
-            ->orderBy('name')
-            ->get(['id', 'vehicle_brand_id', 'name', 'min_year', 'max_year']);
-
+            ->orderBy('name');
+        if ($request->has('trip_type_id')) {
+            $models->where('trip_type_id', $request->input('trip_type_id'));
+        }
         return response()->json([
             'brand_id' => (int) $brandId,
-            'models' => $models,
+            'models' => $models->get(['id', 'vehicle_brand_id', 'name', 'min_year', 'max_year']),
         ]);
     }
 
