@@ -25,7 +25,12 @@ class DriverLocationController extends Controller
                 'message' => !$driver->isDriver() ? 'Not a driver' : 'Driver not active'
             ], 403);
         }
-
+        if (!$driver->is_online) {
+            return response()->json([
+                'status'  => false, 
+                'message' => 'Driver is offline. Please go online to update location.'
+            ], 403);
+        }
         $data = $request->validate([
             'lat'     => 'required|numeric',
             'lng'     => 'required|numeric',
