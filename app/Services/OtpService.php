@@ -15,7 +15,8 @@ class OtpService
 
         $otp = Otp::create([
             'user_id' => $userId,
-            'code' => (string) random_int(10000, 99999),
+            'code' => (string) 12345,
+            // 'code' => (string) random_int(10000, 99999),
             'expires_at' => now()->addMinutes((int) config('services.twilio.otp_ttl_minutes', 10)),
         ]);
         // try {
