@@ -157,7 +157,7 @@ class TripRepository
 
             // Broadcast to nearby drivers
             // Broadcast to nearby drivers: collect members efficiently and fetch drivers in one query
-            $originGeohash = GeoHash::encode($trip->origin_lat, $trip->origin_lng, 7);
+            $originGeohash = GeoHash::encode($trip->origin_lat, $trip->origin_lng, 5);
             $cells = array_merge([$originGeohash], GeoHash::neighbors($originGeohash));
             $nearbyDrivers = [];
             foreach ($cells as $cell) {

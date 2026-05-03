@@ -35,7 +35,7 @@ class NewTripRetryJob implements ShouldQueue
         // stop if trip already assigned or not searching
         if ($trip->driver_id || $trip->status !== 'searching_driver') return;
 
-        $originGeohash = GeoHash::encode($trip->origin_lat, $trip->origin_lng, 7);
+        $originGeohash = GeoHash::encode($trip->origin_lat, $trip->origin_lng, 5);
         $cells = array_merge([$originGeohash], GeoHash::neighbors($originGeohash));
 
         $nearbyDrivers = [];
