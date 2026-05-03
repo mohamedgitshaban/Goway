@@ -117,7 +117,42 @@ class ClientTripController extends Controller
 
         return TripResource::collection($data);
     }
+    public function applycoupon(Request $request)
+    {
+        $request->validate([
+            'coupon_code' => 'required|string',
+            'trip_type_id' => 'nullable|exists:trip_types,id',
+        ]);
 
+        $coupon = Coupon::active()->where('code', $request->coupon_code)->first();
+
+        if (!$coupon) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Coupon not found or inactive',
+            ], 404);
+        }
+
+        $tripType = null;
+        if ($request->trip_type_id) {
+            $tripType = TripType::find($request->trip_type_id);
+        }
+
+        $isValid = $coupon->isValidFor($request->user(), $tripType);
+
+        if (!$isValid) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Coupon is not valid',
+            ], 400);
+        }
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Coupon is valid',
+            'coupon' => $coupon,
+        ]);
+    }
     public function estimate(Request $request)
     {
         $data = $request->validate([

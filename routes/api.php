@@ -132,6 +132,7 @@ Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(functio
 
     Route::prefix('trips')->group(function () {
         Route::post('/estimate', [ClientTripController::class, 'estimate']);
+        Route::post('/apply_coupon', [ClientTripController::class, 'applycoupon']);
         Route::post('/', [ClientTripController::class, 'store']);
         Route::post('/{trip}/cancel', [ClientTripController::class, 'cancel']);
         Route::post('/{trip}/negotiate/accept', [ClientTripController::class, 'acceptNegotiation']);
