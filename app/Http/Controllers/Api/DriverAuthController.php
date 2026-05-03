@@ -102,14 +102,16 @@ class DriverAuthController extends Controller
             'status' => 'pending_otp',
             'personal_image' =>  $data['personal_image'] ?? null,
         ]);
-        try {
-            $this->otpService->issue($user->id, $user->phone);
+        $this->otpService->issue($user->id, $user->phone);
+        return response()->json(['message' => 'Registration successful, OTP sent to phone']);
+        // try {
+        //     $this->otpService->issue($user->id, $user->phone);
 
-        } catch (\Throwable $exception) {
-            report($exception);
+        // } catch (\Throwable $exception) {
+        //     report($exception);
 
-            return response()->json(['message' => 'Unable to complete registration at the moment'], 502);
-        }
+        //     return response()->json(['message' => 'Unable to complete registration at the moment'], 502);
+        // }
     }
     public function activatePhone(Request $request)
     {
