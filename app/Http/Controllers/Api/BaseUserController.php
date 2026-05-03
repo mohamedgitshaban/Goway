@@ -71,6 +71,15 @@ class BaseUserController extends Controller
             return response()->json(['message' => 'User not found'], 404);
         }
 
+        if ($user instanceof \App\Models\Driver) {
+            if (!$user->driverDocument || !$user->driverDocument->isAccepted()) {
+                return response()->json(['message' => 'Cannot activate driver. Documents are missing or not accepted.'], 400);
+            }
+        }
+        if ($user->status === 'active') {
+            return response()->json(['message' => 'User is already active'], 400);
+        }
+
         $user->status = 'active';
         $user->save();
 
@@ -96,6 +105,11 @@ class BaseUserController extends Controller
         if ($user->status !== 'active') {
             return response()->json(['message' => 'Only active users can be suspended'], 400);
         }
+        if ($user instanceof \App\Models\Driver) {
+            if (!$user->driverDocument || !$user->driverDocument->isAccepted()) {
+                return response()->json(['message' => 'Cannot suspend driver. Documents are missing or not accepted.'], 400);
+            }
+        }
         $user->status = 'disactive';
         $user->save();
 
@@ -111,12 +125,17 @@ class BaseUserController extends Controller
         if (! $user) {
             return response()->json(['message' => 'User not found'], 404);
         }
+
         if ($user->status === 'disactive') {
+            if ($user instanceof \App\Models\Driver) {
+                if (!$user->driverDocument || !$user->driverDocument->isAccepted()) {
+                    return response()->json(['message' => 'Cannot activate driver. Documents are missing or not accepted.'], 400);
+                }
+            }
             $user->status = 'active';
         } elseif ($user->status === 'active') {
             $user->status = 'disactive';
-        }
-        else {
+        } else {
             return response()->json(['message' => 'should be active user'], 400);
         }
         $user->save();
