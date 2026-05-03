@@ -165,5 +165,6 @@ return [
         'car back image' => 'صورة خلفية للسيارة',
         'car left image' => 'صورة جانبية للسيارة (يسار)',
         'car right image' => 'صورة جانبية للسيارة (يمين)',
+        'plate_number' => 'رقم اللوحة',
     ],
 ];
