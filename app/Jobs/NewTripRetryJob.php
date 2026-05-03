@@ -63,9 +63,19 @@ class NewTripRetryJob implements ShouldQueue
             }
         
 
-        // schedule next retry if still unassigned and attempts < 9 (so total 10 tries)
-        if ($this->attemptsMade < 9) {
+        // schedule next retry if still unassigned and attempts < 20 (so total 20 tries)
+        if ($this->attemptsMade < 20) {
             self::dispatch($this->tripId, $this->attemptsMade + 1)->delay(now()->addMinutes(2));
+        }
+        else {
+            // Mark trip as failed after 20 attempts
+            $trip->status = 'cancelled_by_system';
+            $trip->cancelled_at = now();
+            $trip->cancelled_by = null; // System
+            $trip->cancel_reason = 'no_drivers_found';
+            $trip->save();
+
+            broadcast(new \App\Events\TripCancelledBySystem($trip));
         }
     }
 }
