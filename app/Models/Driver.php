@@ -31,13 +31,17 @@ class Driver extends User
     {
         return $this->hasOne(DriverDocument::class, 'user_id');
     }
-        public function wallet()
-        {
-            return $this->hasOne(Wallet::class, 'user_id');
-        }
-        public function vehicles(){
-            return $this->hasMany(Vehicle::class, 'driver_id');
-        }
-            
-        
+    public function wallet()
+    {
+        return $this->hasOne(Wallet::class, 'user_id');
+    }
+    public function vehicles()
+    {
+        return $this->hasMany(Vehicle::class, 'driver_id');
+    }
+
+    public function activeVehicle()
+    {
+        return $this->hasOne(Vehicle::class, 'driver_id')->where('isactive', 1);
+    }
 }
