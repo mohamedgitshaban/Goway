@@ -57,7 +57,7 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
     Route::get('/offers', [\App\Http\Controllers\Api\OfferController::class, 'index']);
     Route::prefix("vehicle")->group(function () {
         Route::get('{id}/brands', [VehicleModelController::class, 'brands']);
-        Route::get('{id}/models', [VehicleModelController::class, 'brandModels']);
+        Route::get('models', [VehicleModelController::class, 'brandModels']);
     });
     Route::prefix('documents')->group(function () {
         Route::get('trip_types', [\App\Http\Controllers\Api\TripTypeController::class, 'index']);
@@ -263,7 +263,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
     });
 
     // Dashboard / analytics endpoint for admin
-    Route::get('/dashboard/stats', [\App\Http\Controllers\Api\AdminDashboardController::class, 'index']);
+    Route::get('/dashboard/stats', [\App\Http\Controllers\Api\AdminDashboardController::class, 'index'])->middleware('admin.permission:dashboard.index');
 
     Route::get('/offers', [\App\Http\Controllers\Api\OfferController::class, 'index'])->middleware('admin.permission:offers.index');
     Route::post('/offers', [\App\Http\Controllers\Api\OfferController::class, 'store'])->middleware('admin.permission:offers.store');

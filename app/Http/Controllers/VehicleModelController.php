@@ -16,8 +16,9 @@ class VehicleModelController extends Controller
     }
 
     // return all models for a brand
-    public function brandModels($brandId, Request $request)
+    public function brandModels(Request $request)
     {
+        $brandId = $request->query('brand_id');
         $models = \App\Models\VehicleModel::where('vehicle_brand_id', $brandId)
             ->orderBy('name');
         if ($request->has('trip_type_id')) {
