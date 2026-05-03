@@ -185,8 +185,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::get('/', [ClientController::class, 'index'])->middleware('admin.permission:clients.index');          // list + search + filter + sort + pagination
         Route::get('/export', [ClientController::class, 'export'])->middleware('admin.permission:clients.export');   // export CSV / Excel
         Route::get('/{id}', [ClientController::class, 'show'])->middleware('admin.permission:clients.show');       // show single
-        Route::put('/{id}/activate', [ClientController::class, 'activate'])->middleware('admin.permission:clients.activate');
-        Route::put('/{id}/suspend', [ClientController::class, 'suspend'])->middleware('admin.permission:clients.suspend');
+        Route::put('/{id}/activate', [ClientController::class, 'activate'])->middleware('admin.permission:clients.status_toggle');
+        Route::put('/{id}/suspend', [ClientController::class, 'suspend'])->middleware('admin.permission:clients.status_toggle');
         Route::put('/{id}/status-toggle', [ClientController::class, 'statusToggle'])->middleware('admin.permission:clients.status_toggle');
         Route::delete('/{id}', [ClientController::class, 'destroy'])->middleware('admin.permission:clients.destroy'); // soft delete
         Route::put('/{id}/restore', [ClientController::class, 'restore'])->middleware('admin.permission:clients.restore'); // restore
@@ -196,8 +196,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::get('/', [DriverController::class, 'index'])->middleware('admin.permission:drivers.index');
         Route::get('/export', [DriverController::class, 'export'])->middleware('admin.permission:drivers.export');
         Route::get('/{id}', [DriverController::class, 'show'])->middleware('admin.permission:drivers.show');
-        Route::put('/{id}/activate', [DriverController::class, 'activate'])->middleware('admin.permission:drivers.activate');
-        Route::put('/{id}/suspend', [DriverController::class, 'suspend'])->middleware('admin.permission:drivers.suspend');
+        Route::put('/{id}/activate', [DriverController::class, 'activate'])->middleware('admin.permission:drivers.status_toggle');
+        Route::put('/{id}/suspend', [DriverController::class, 'suspend'])->middleware('admin.permission:drivers.status_toggle');
         Route::put('/{id}/status-toggle', [DriverController::class, 'statusToggle'])->middleware('admin.permission:drivers.status_toggle');
         Route::delete('/{id}', [DriverController::class, 'destroy'])->middleware('admin.permission:drivers.destroy');
 
@@ -214,8 +214,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::get('/', [AdminController::class, 'index'])->middleware('admin.permission:admins.index');
         Route::get('/export', [AdminController::class, 'export'])->middleware('admin.permission:admins.export');
         Route::get('/{id}', [AdminController::class, 'show'])->middleware('admin.permission:admins.show');
-        Route::put('/{id}/activate', [AdminController::class, 'activate'])->middleware('admin.permission:admins.activate');
-        Route::put('/{id}/suspend', [AdminController::class, 'suspend'])->middleware('admin.permission:admins.suspend');
+        Route::put('/{id}/activate', [AdminController::class, 'activate'])->middleware('admin.permission:admins.status_toggle');
+        Route::put('/{id}/suspend', [AdminController::class, 'suspend'])->middleware('admin.permission:admins.status_toggle');
         Route::put('/{id}/status-toggle', [AdminController::class, 'statusToggle'])->middleware('admin.permission:admins.status_toggle');
         Route::delete('/{id}', [AdminController::class, 'destroy'])->middleware('admin.permission:admins.destroy');
         Route::put('/{id}/restore', [AdminController::class, 'restore'])->middleware('admin.permission:admins.restore');
@@ -240,8 +240,8 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::post('/', [TripTypeController::class, 'store'])->middleware('admin.permission:trip_types.store');
         Route::put('/{id}', [TripTypeController::class, 'update'])->middleware(['admin.permission:trip_types.update']);
         Route::get('/{id}', [TripTypeController::class, 'show'])->middleware('admin.permission:trip_types.show');
-        Route::put('/{id}/activate', [TripTypeController::class, 'activate'])->middleware('admin.permission:trip_types.activate');
-        Route::put('/{id}/suspend', [TripTypeController::class, 'suspend'])->middleware('admin.permission:trip_types.suspend');
+        Route::put('/{id}/activate', [TripTypeController::class, 'activate'])->middleware('admin.permission:trip_types.status_toggle');
+        Route::put('/{id}/suspend', [TripTypeController::class, 'suspend'])->middleware('admin.permission:trip_types.status_toggle');
         Route::put('/{id}/status-toggle', [TripTypeController::class, 'statusToggle'])->middleware('admin.permission:trip_types.status_toggle');
         Route::put('/{id}/licence-toggle', [TripTypeController::class, 'licenceToggle'])->middleware('admin.permission:trip_types.licence_toggle');
         Route::delete('/{id}', [TripTypeController::class, 'destroy'])->middleware('admin.permission:trip_types.destroy');

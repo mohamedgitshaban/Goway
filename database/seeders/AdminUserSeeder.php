@@ -16,13 +16,13 @@ class AdminUserSeeder extends Seeder
         // canonical permissions list (resource.action)
         $permissions = [
             // clients
-            'clients.index','clients.export','clients.show','clients.activate','clients.suspend','clients.status_toggle','clients.destroy','clients.restore',
+            'clients.index','clients.export','clients.show','clients.status_toggle','clients.destroy','clients.restore',
             // drivers
-            'drivers.index','drivers.export','drivers.show','drivers.activate','drivers.suspend','drivers.status_toggle','drivers.destroy','drivers.restore',
+            'drivers.index','drivers.export','drivers.show','drivers.status_toggle','drivers.destroy','drivers.restore',
             // admins
-            'admins.index','admins.export','admins.show','admins.store','admins.update','admins.activate','admins.suspend','admins.status_toggle','admins.destroy','admins.restore',
+            'admins.index','admins.export','admins.show','admins.store','admins.update','admins.status_toggle','admins.destroy','admins.restore',
             // trip types
-            'trip_types.index','trip_types.export','trip_types.store','trip_types.update','trip_types.show','trip_types.activate','trip_types.suspend','trip_types.status_toggle','trip_types.licence_toggle','trip_types.destroy','trip_types.restore',
+            'trip_types.index','trip_types.export','trip_types.store','trip_types.update','trip_types.show','trip_types.status_toggle','trip_types.licence_toggle','trip_types.destroy','trip_types.restore',
             // wallets
             'wallets.index','wallets.show',
             // documents
