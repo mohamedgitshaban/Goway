@@ -72,7 +72,7 @@ class DriverLocationController extends Controller
         | 4. Compute New State & Dispatch Events
         |--------------------------------------------------------------------------
         */
-        $newGeohash = GeoHash::encode($lat, $lng, 7);
+        $newGeohash = GeoHash::encode($lat, $lng, 5);
 
         // Scenario A: First time entering a location (No old geohash)
         if (!$oldGeohash) {
