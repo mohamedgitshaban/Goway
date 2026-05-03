@@ -180,7 +180,7 @@ class TripRepository
                 }
             }
 
-            NewTripRetryJob::dispatch($trip->id, 0)->delay(now()->addMinutes(5));
+            NewTripRetryJob::dispatch($trip->id, 0)->delay(now()->addMinutes(2));
 
             return $trip;
         });

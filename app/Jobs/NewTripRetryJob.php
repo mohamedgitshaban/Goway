@@ -65,7 +65,7 @@ class NewTripRetryJob implements ShouldQueue
 
         // schedule next retry if still unassigned and attempts < 9 (so total 10 tries)
         if ($this->attemptsMade < 9) {
-            self::dispatch($this->tripId, $this->attemptsMade + 1)->delay(now()->addMinutes(5));
+            self::dispatch($this->tripId, $this->attemptsMade + 1)->delay(now()->addMinutes(2));
         }
     }
 }
