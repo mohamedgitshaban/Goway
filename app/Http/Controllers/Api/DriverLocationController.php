@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Events\DriverLocationUpdated;
+use App\Http\Controllers\Controller;
 use App\Support\GeoHash;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redis;
@@ -14,11 +14,16 @@ class DriverLocationController extends Controller
     {
         $driver = $request->user();
 
-        if (! $driver->isDriver() ) {
-            return response()->json(['status' => false, 'message' => 'Not a driver'], 403);
-        }
-        if ($driver->status !== 'active') {
-            return response()->json(['status' => false, 'message' => 'Driver not active'], 403);
+        /*
+        |--------------------------------------------------------------------------
+        | 1. Validation & Authorization
+        |--------------------------------------------------------------------------
+        */
+        if (!$driver->isDriver() || $driver->status !== 'active') {
+            return response()->json([
+                'status'  => false, 
+                'message' => !$driver->isDriver() ? 'Not a driver' : 'Driver not active'
+            ], 403);
         }
 
         $data = $request->validate([
@@ -33,107 +38,101 @@ class DriverLocationController extends Controller
 
         /*
         |--------------------------------------------------------------------------
-        | 0) Check if location unchanged → no event
+        | 2. Retrieve Previous State
         |--------------------------------------------------------------------------
         */
-        $oldLat = Redis::hget("driver:{$driver->id}:location", 'lat');
-        $oldLng = Redis::hget("driver:{$driver->id}:location", 'lng');
-        $oldGeohash = Redis::hget("driver:{$driver->id}:location", 'geohash');
+        $driverKey = "driver:{$driver->id}:location";
+        
+        // hmget returns an array of values, indexed sequentially
+        $oldState   = Redis::hmget($driverKey, ['lat', 'lng', 'geohash']);
+        $oldLat     = $oldState[0] ?? null;
+        $oldLng     = $oldState[1] ?? null;
+        $oldGeohash = $oldState[2] ?? null;
 
-        if ($oldLat && $oldLng) {
-            if ((float)$oldLat === $lat && (float)$oldLng === $lng) {
-
-                // Update timestamp only
-                Redis::hmset("driver:{$driver->id}:location", [
-                    'lat'        => $lat,
-                    'lng'        => $lng,
-                    'geohash'    => $oldGeohash,
-                    'updated_at' => now()->toIso8601String(),
-                ]);
-
-                Redis::expire("driver:{$driver->id}:location", 20);
-
-                return response()->json([
-                    'status'  => true,
-                    'message' => 'Location unchanged — no event broadcasted'
-                ]);
-            }
+        /*
+        |--------------------------------------------------------------------------
+        | 3. Check for Unchanged Location
+        |--------------------------------------------------------------------------
+        */
+        if ($oldLat !== null && $oldLng !== null && (float)$oldLat === $lat && (float)$oldLng === $lng) {
+            Redis::expire($driverKey, 20); // Only extend TTL
+            return response()->json([
+                'status'  => true,
+                'message' => 'Location unchanged — no event broadcasted'
+            ]);
         }
 
         /*
         |--------------------------------------------------------------------------
-        | 1) Compute new geohash
+        | 4. Compute New State & Dispatch Events
         |--------------------------------------------------------------------------
         */
         $newGeohash = GeoHash::encode($lat, $lng, 7);
 
-        /*
-        |--------------------------------------------------------------------------
-        | 2) Driver moved to a NEW geohash → left + entered
-        |--------------------------------------------------------------------------
-        */
-        if ($oldGeohash && $oldGeohash !== $newGeohash) {
+        // Scenario A: First time entering a location (No old geohash)
+        if (!$oldGeohash) {
+            $this->addDriverToGeohash($driver->id, $newGeohash);
+            $this->broadcastLocation($driver->id, $lat, $lng, $newGeohash, 'driver_entered', $data['bearing'] ?? null, $data['speed'] ?? null);
+        }
+        // Scenario B: Moved to a DIFFERENT geohash
+        else if ($oldGeohash !== $newGeohash) {
+            $this->removeDriverFromGeohash($driver->id, $oldGeohash);
+            $this->broadcastLocation($driver->id, (float)$oldLat, (float)$oldLng, $oldGeohash, 'driver_left');
 
-            // Remove from old geohash
-            Redis::srem("geohash:drivers:{$oldGeohash}", $driver->id);
-
-            // Broadcast driver_left
-            broadcast(new DriverLocationUpdated(
-                driverId: $driver->id,
-                lat: $lat,
-                lng: $lng,
-                geohash: $oldGeohash,
-                eventType: 'driver_left'
-            ));
-
-            // Add to new geohash
-            Redis::sadd("geohash:drivers:{$newGeohash}", $driver->id);
-
-            // Broadcast driver_entered
-            broadcast(new DriverLocationUpdated(
-                driverId: $driver->id,
-                lat: $lat,
-                lng: $lng,
-                geohash: $newGeohash,
-                eventType: 'driver_entered',
-                bearing: $data['bearing'] ?? null,
-                speed: $data['speed'] ?? null
-            ));
-
-        } else {
-
-            /*
-            |--------------------------------------------------------------------------
-            | 3) Driver moved inside SAME geohash → moved
-            |--------------------------------------------------------------------------
-            */
-            Redis::sadd("geohash:drivers:{$newGeohash}", $driver->id);
-
-            broadcast(new DriverLocationUpdated(
-                driverId: $driver->id,
-                lat: $lat,
-                lng: $lng,
-                geohash: $newGeohash,
-                eventType: 'driver_moved',
-                bearing: $data['bearing'] ?? null,
-                speed: $data['speed'] ?? null
-            ));
+            $this->addDriverToGeohash($driver->id, $newGeohash);
+            $this->broadcastLocation($driver->id, $lat, $lng, $newGeohash, 'driver_entered', $data['bearing'] ?? null, $data['speed'] ?? null);
+        }
+        // Scenario C: Moved within the SAME geohash
+        else {
+            $this->addDriverToGeohash($driver->id, $newGeohash); // Ensure presence in set
+            $this->broadcastLocation($driver->id, $lat, $lng, $newGeohash, 'driver_moved', $data['bearing'] ?? null, $data['speed'] ?? null);
         }
 
         /*
         |--------------------------------------------------------------------------
-        | 4) Save driver location + TTL
+        | 5. Persist State
         |--------------------------------------------------------------------------
         */
-        Redis::hmset("driver:{$driver->id}:location", [
+        Redis::hmset($driverKey, [
             'lat'        => $lat,
             'lng'        => $lng,
             'geohash'    => $newGeohash,
             'updated_at' => now()->toIso8601String(),
         ]);
-
-        Redis::expire("driver:{$driver->id}:location", 20);
+        Redis::expire($driverKey, 20);
 
         return response()->json(['status' => true]);
+    }
+
+    /**
+     * Add driver to geohash set
+     */
+    private function addDriverToGeohash(int $driverId, string $geohash): void
+    {
+        Redis::sadd("geohash:drivers:{$geohash}", $driverId);
+    }
+
+    /**
+     * Remove driver from geohash set
+     */
+    private function removeDriverFromGeohash(int $driverId, string $geohash): void
+    {
+        Redis::srem("geohash:drivers:{$geohash}", $driverId);
+    }
+
+    /**
+     * Dispatch DriverLocationUpdated event
+     */
+    private function broadcastLocation(int $driverId, float $lat, float $lng, string $geohash, string $eventType, ?float $bearing = null, ?float $speed = null): void
+    {
+        broadcast(new DriverLocationUpdated(
+            driverId: $driverId,
+            lat: $lat,
+            lng: $lng,
+            geohash: $geohash,
+            eventType: $eventType,
+            bearing: $bearing,
+            speed: $speed
+        ));
     }
 }

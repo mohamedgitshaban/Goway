@@ -165,13 +165,7 @@ class DriverAuthController extends Controller
             $driver->is_online = false;
             $driver->save();
 
-            // Remove from Redis
-            Redis::del("driver:{$driver->id}:location");
-
-            $keys = Redis::keys("geohash:drivers:*");
-            foreach ($keys as $key) {
-                Redis::srem($key, $driver->id);
-            }
+            $this->broadcastAndClearLocation($driver->id);
 
             $driver->currentAccessToken()->delete();
         }
@@ -241,14 +235,7 @@ class DriverAuthController extends Controller
         $driver = auth()->user();
         $driver->update(['is_online' => false]);
 
-        // Remove from Redis
-        Redis::del("driver:{$driver->id}:location");
-
-        // Remove from all geohash sets
-        $keys = Redis::keys("geohash:drivers:*");
-        foreach ($keys as $key) {
-            Redis::srem($key, $driver->id);
-        }
+        $this->broadcastAndClearLocation($driver->id);
 
         return response()->json(['message' => 'Driver is now offline']);
     }
@@ -259,14 +246,7 @@ class DriverAuthController extends Controller
         $driver = auth()->user();
         $driver->update(['is_online' => !$driver->is_online]);
         if (! $driver->is_online) {
-            // Remove from Redis
-            Redis::del("driver:{$driver->id}:location");
-
-            // Remove from all geohash sets
-            $keys = Redis::keys("geohash:drivers:*");
-            foreach ($keys as $key) {
-                Redis::srem($key, $driver->id);
-            }
+            $this->broadcastAndClearLocation($driver->id);
         }
         return response()->json(['is_online' => $driver->is_online]);
     }
@@ -286,4 +266,38 @@ class DriverAuthController extends Controller
             'message' => 'Account deleted successfully',
         ]);
     }
+
+    /**
+     * Helper to broadcast driver_left and clear Redis location keys when offline.
+     */
+    private function broadcastAndClearLocation(int $driverId)
+    {
+        $driverKey = "driver:{$driverId}:location";
+        $oldState  = Redis::hmget($driverKey, ['lat', 'lng', 'geohash']);
+
+        if ($oldState[0] !== null && $oldState[1] !== null && $oldState[2] !== null) {
+            broadcast(new \App\Events\DriverLocationUpdated(
+                driverId: $driverId,
+                lat: (float) $oldState[0],
+                lng: (float) $oldState[1],
+                geohash: $oldState[2],
+                eventType: 'driver_left'
+            ));
+        }
+
+        // Remove from Redis
+        Redis::del($driverKey);
+
+        // Remove from all geohash sets efficiently
+        if (isset($oldState[2]) && $oldState[2] !== null) {
+            Redis::srem("geohash:drivers:{$oldState[2]}", $driverId);
+        } else {
+            // Fallback: remove from all if geohash wasn't known
+            $keys = Redis::keys("geohash:drivers:*");
+            foreach ($keys as $key) {
+                Redis::srem($key, $driverId);
+            }
+        }
+    }
 }
+
