@@ -17,27 +17,51 @@ class AdminDashboardController extends Controller
 {
     public function index(Request $request)
     {
-        $activeDriversCount = Driver::where('status', 'active')->count();
-        $inactiveDriversCount = Driver::where('status', 'disactive')->count();
-        $otherDriversCount = Driver::whereNotIn('status', ['active', 'disactive'])->count();
-        $activeVehiclesCount = Vehicle::where('status', 'active')->count();
-        $tripTypesCount = TripType::count();
-        $completedTripsCount = Trip::where('status', 'completed')->count();
-        $cancelledByClientTripsCount = Trip::where('status', 'cancelled_by_client')->count();
-        $cancelledByDriverTripsCount = Trip::where('status', 'cancelled_by_driver')->count();
-        $activeOffersCount = Offer::where('is_active', 1)->count();
-        $activeCouponsCount = Coupon::where('ends_at', '>', now())->where('is_active', 1)->count();
-        return response()->json([
-            'active_drivers_count' => $activeDriversCount,
-            'inactive_drivers_count' => $inactiveDriversCount,
-            'other_drivers_count' => $otherDriversCount,
-            'active_vehicles_count' => $activeVehiclesCount,
-            'trip_types_count' => $tripTypesCount,
-            'completed_trips_count' => $completedTripsCount,
-            'cancelled_by_client_trips_count' => $cancelledByClientTripsCount,
-            'cancelled_by_driver_trips_count' => $cancelledByDriverTripsCount,
-            'active_offers_count' => $activeOffersCount,
-            'active_coupons_count' => $activeCouponsCount,
-        ]);
+        $user = $request->user();
+        $permissions = $user->role ? $user->role->permissions->pluck('name')->toArray() : [];
+
+        $data = [];
+
+        if (in_array('dashboard.active_driver', $permissions)) {
+            $data['active_drivers_count'] = Driver::where('status', 'active')->count();
+        }
+
+        if (in_array('dashboard.disactive_driver', $permissions)) {
+            $data['inactive_drivers_count'] = Driver::where('status', 'disactive')->count();
+        }
+
+        if (in_array('dashboard.other_driver', $permissions)) {
+            $data['other_drivers_count'] = Driver::whereNotIn('status', ['active', 'disactive'])->count();
+        }
+
+        if (in_array('dashboard.active_vehicle', $permissions)) {
+            $data['active_vehicles_count'] = Vehicle::where('status', 'active')->count();
+        }
+
+        if (in_array('dashboard.trip_type', $permissions)) {
+            $data['trip_types_count'] = TripType::count();
+        }
+
+        if (in_array('dashboard.completed_trip', $permissions)) {
+            $data['completed_trips_count'] = Trip::where('status', 'completed')->count();
+        }
+
+        if (in_array('dashboard.cancle_by_client', $permissions)) {
+            $data['cancelled_by_client_trips_count'] = Trip::where('status', 'cancelled_by_client')->count();
+        }
+
+        if (in_array('dashboard.cancle_by_driver', $permissions)) {
+            $data['cancelled_by_driver_trips_count'] = Trip::where('status', 'cancelled_by_driver')->count();
+        }
+
+        if (in_array('dashboard.offers', $permissions)) {
+            $data['active_offers_count'] = Offer::where('is_active', 1)->count();
+        }
+
+        if (in_array('dashboard.coupons', $permissions)) {
+            $data['active_coupons_count'] = Coupon::where('ends_at', '>', now())->where('is_active', 1)->count();
+        }
+
+        return response()->json($data);
     }
 }

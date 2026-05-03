@@ -26,7 +26,10 @@ class AdminUserSeeder extends Seeder
             // wallets
             'wallets.index','wallets.show',
             // documents
-            'documents.index','documents.accept','documents.reject',
+            'documents.index','documents.accept','documents.reject','vehicles.index','vehicles.accept','vehicles.reject',
+            'dashboard.index','dashboard.active_driver','dashboard.disactive_driver','dashboard.other_driver',
+            'dashboard.active_vehicle','dashboard.trip_type','dashboard.completed_trip','dashboard.cancle_by_driver','dashboard.cancle_by_client'
+            ,'dashboard.offers','dashboard.coupons',
             // offers & coupons
             'offers.index','offers.store','offers.show','offers.update','offers.destroy',
             'coupons.index','coupons.store','coupons.show','coupons.update','coupons.destroy',

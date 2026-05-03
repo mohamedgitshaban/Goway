@@ -257,9 +257,9 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::post('/{id}/reject', [\App\Http\Controllers\Api\DriverDocumentController::class, 'reject'])->middleware('admin.permission:documents.reject');
     });
     Route::prefix('vehicles')->group(function () {
-        Route::get('/', [\App\Http\Controllers\Api\VehicleApprovalController::class, 'index'])->middleware('admin.permission:documents.index');
-        Route::post('/{id}/accept', [\App\Http\Controllers\Api\VehicleApprovalController::class, 'accept'])->middleware('admin.permission:documents.accept');
-        Route::post('/{id}/reject', [\App\Http\Controllers\Api\VehicleApprovalController::class, 'reject'])->middleware('admin.permission:documents.reject');
+        Route::get('/', [\App\Http\Controllers\Api\VehicleApprovalController::class, 'index'])->middleware('admin.permission:vehicles.index');
+        Route::post('/{id}/accept', [\App\Http\Controllers\Api\VehicleApprovalController::class, 'accept'])->middleware('admin.permission:vehicles.accept');
+        Route::post('/{id}/reject', [\App\Http\Controllers\Api\VehicleApprovalController::class, 'reject'])->middleware('admin.permission:vehicles.reject');
     });
 
     // Dashboard / analytics endpoint for admin
