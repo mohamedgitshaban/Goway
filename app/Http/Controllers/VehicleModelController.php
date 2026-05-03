@@ -11,6 +11,7 @@ class VehicleModelController extends Controller
     // return all vehicle brands (optionally filter by trip_type_id via ?trip_type_id=)
     public function brands($tripTypeId)
     {
+
         $brands = VehicleBrand::where('trip_type_id', $tripTypeId)->orderBy('name')->get(['id', 'trip_type_id', 'name']);
         return response()->json(['brands' => $brands]);
     }
@@ -19,6 +20,9 @@ class VehicleModelController extends Controller
     public function brandModels(Request $request)
     {
         $brandId = $request->query('brand_id');
+        if (! $brandId) {
+            return response()->json(['message' => 'brand_id query parameter is required'], 400);
+        }
         $models = \App\Models\VehicleModel::where('vehicle_brand_id', $brandId)
             ->orderBy('name');
         if ($request->has('trip_type_id')) {
