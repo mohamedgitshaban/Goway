@@ -36,6 +36,7 @@ class User extends Authenticatable
         'personal_image',
         'is_online',
         'is_idle',
+        'is_phone_verified',
         'fcm_token',
         'safety_location_access',
         'safety_voice_access',

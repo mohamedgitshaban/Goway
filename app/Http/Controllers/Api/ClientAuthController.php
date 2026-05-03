@@ -36,6 +36,9 @@ class ClientAuthController extends Controller
 
         $user = Client::where('phone', $request->input('phone'))->first();
         if (! $user) return response()->json(['message' => 'User not found'], 404);
+        if($user->status === 'disactive') {
+            return response()->json(['message' => 'Your account is deactivated.'], 403);
+        }
         $this->otpService->issue($user->id, $user->phone);
 
         // try {
@@ -136,6 +139,10 @@ class ClientAuthController extends Controller
         $user = Client::where('phone', $request->input('phone'))->first();
         if (! $user) return response()->json(['message' => 'User not found'], 404);
         $user->status = 'active';
+        if(! $user->is_phone_verified) {
+            $user->is_phone_verified = true;
+            $user->save();
+        }
         $otp = Otp::where('user_id', $user->id)->orderBy('expires_at', 'desc')->first();
         if (! $otp || $otp->code !== $request->input('otp') || $otp->expires_at->isPast()) {
             return response()->json(['message' => 'Invalid or expired OTP'], 401);
@@ -145,7 +152,7 @@ class ClientAuthController extends Controller
 
         // Send welcome email
         if ($user->email) {
-            // Mail::to($user->email)->queue(new WelcomeMail($user));
+            Mail::to($user->email)->queue(new WelcomeMail($user));
         }
 
         return response()->json([
