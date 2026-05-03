@@ -21,7 +21,7 @@ class VehicleModelController extends Controller
         $models = \App\Models\VehicleModel::where('vehicle_brand_id', $brandId)
             ->orderBy('name');
         if ($request->has('trip_type_id')) {
-            $models->where('trip_type_id', $request->input('trip_type_id'));
+            $models->where('trip_type_id', $request->query('trip_type_id'));
         }
         return response()->json([
             'brand_id' => (int) $brandId,
