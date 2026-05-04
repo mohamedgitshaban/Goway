@@ -17,9 +17,7 @@ use App\Http\Controllers\Api\UserCouponController;
 use App\Http\Controllers\Api\WalletController;
 use App\Http\Controllers\Api\WalletTransactionController;
 use App\Http\Controllers\VehicleModelController;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
-use Illuminate\Support\Facades\Storage;
 
 Route::prefix('driver/auth')->group(function () {
     Route::post('/login', [\App\Http\Controllers\Api\DriverAuthController::class, 'login']);

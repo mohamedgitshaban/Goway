@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Events\DriverLocationUpdated;
 use App\Http\Controllers\Controller;
+use App\Models\Trip;
 use App\Support\GeoHash;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Redis;
@@ -75,6 +76,36 @@ class DriverLocationController extends Controller
         |--------------------------------------------------------------------------
         */
         $newGeohash = GeoHash::encode($lat, $lng, self::DRIVER_LOCATION_GEOHASH_PRECISION);
+        $activeTripId = $this->getActiveTripId($driver->id);
+
+        // When driver is on an active trip, send location updates only to that trip channel.
+        if ($activeTripId !== null) {
+            if ($oldGeohash && $oldGeohash !== $newGeohash) {
+                $this->removeDriverFromGeohash($driver->id, $oldGeohash);
+            }
+
+            $this->addDriverToGeohash($driver->id, $newGeohash);
+            $this->broadcastLocation(
+                $driver->id,
+                $lat,
+                $lng,
+                $newGeohash,
+                'driver_moved',
+                $data['bearing'] ?? null,
+                $data['speed'] ?? null,
+                $activeTripId
+            );
+
+            Redis::hmset($driverKey, [
+                'lat'        => $lat,
+                'lng'        => $lng,
+                'geohash'    => $newGeohash,
+                'updated_at' => now()->toIso8601String(),
+            ]);
+            Redis::expire($driverKey, 20);
+
+            return response()->json(['status' => true]);
+        }
 
         // Scenario A: First time entering a location (No old geohash)
         if (!$oldGeohash) {
@@ -129,10 +160,26 @@ class DriverLocationController extends Controller
         Redis::srem("geohash:drivers:{$geohash}", $driverId);
     }
 
+    private function getActiveTripId(int $driverId): ?int
+    {
+        return Trip::where('driver_id', $driverId)
+            ->whereIn('status', ['driver_assigned', 'driver_arrived', 'in_progress'])
+            ->value('id');
+    }
+
     /**
      * Dispatch DriverLocationUpdated event
      */
-    private function broadcastLocation(int $driverId, float $lat, float $lng, string $geohash, string $eventType, ?float $bearing = null, ?float $speed = null): void
+    private function broadcastLocation(
+        int $driverId,
+        float $lat,
+        float $lng,
+        string $geohash,
+        string $eventType,
+        ?float $bearing = null,
+        ?float $speed = null,
+        ?int $tripId = null
+    ): void
     {
         broadcast(new DriverLocationUpdated(
             driverId: $driverId,
@@ -141,7 +188,8 @@ class DriverLocationController extends Controller
             geohash: $geohash,
             eventType: $eventType,
             bearing: $bearing,
-            speed: $speed
+            speed: $speed,
+            tripId: $tripId
         ));
     }
 }

@@ -18,10 +18,15 @@ class DriverLocationUpdated implements ShouldBroadcast
         public string $eventType, // entered / left / moved
         public ?float $bearing = null,
         public ?float $speed = null,
+        public ?int $tripId = null,
     ) {}
 
     public function broadcastOn(): Channel
     {
+        if ($this->tripId !== null) {
+            return new Channel("trip.{$this->tripId}.driver-location");
+        }
+
         return new Channel("nearby.drivers.{$this->geohash}");
     }
 
@@ -40,6 +45,7 @@ class DriverLocationUpdated implements ShouldBroadcast
             'bearing'   => $this->bearing,
             'speed'     => $this->speed,
             'geohash'   => $this->geohash,
+            'trip_id'   => $this->tripId,
         ];
     }
 }

@@ -17,6 +17,13 @@ Broadcast::channel('trip.{tripId}', function (User $user, $tripId) {
     return $user->id === $trip->client_id || $user->id === $trip->driver_id;
 });
 
+Broadcast::channel('trip.{tripId}.driver-location', function (User $user, $tripId) {
+    $trip = Trip::find($tripId);
+    if (! $trip) return false;
+
+    return $user->id === $trip->client_id || $user->id === $trip->driver_id;
+});
+
 /*
 |--------------------------------------------------------------------------
 | Driver Requests — السائق فقط
