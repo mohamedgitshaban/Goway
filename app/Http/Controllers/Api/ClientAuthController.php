@@ -152,7 +152,7 @@ class ClientAuthController extends Controller
 
         // Send welcome email
         if ($user->email) {
-            Mail::to($user->email)->queue(new WelcomeMail($user));
+            // Mail::to($user->email)->queue(new WelcomeMail($user));
         }
 
         return response()->json([

@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Redis;
-use App\Mail\WelcomeMail;
+// use App\Mail\WelcomeMail;
 use App\Traits\HandlesMultipart;
 
 class DriverAuthController extends Controller
@@ -148,7 +148,7 @@ class DriverAuthController extends Controller
 
         // Send welcome email
         if ($user->email) {
-            Mail::to($user->email)->queue(new WelcomeMail($user));
+            // Mail::to($user->email)->queue(new WelcomeMail($user));
         }
 
         return response()->json([
