@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Redis;
 
 class DriverLocationController extends Controller
 {
+    private const DRIVER_LOCATION_GEOHASH_PRECISION = 5;
+
     public function update(Request $request)
     {
         $driver = $request->user();
@@ -21,13 +23,13 @@ class DriverLocationController extends Controller
         */
         if (!$driver->isDriver() || $driver->status !== 'active') {
             return response()->json([
-                'status'  => false, 
+                'status'  => false,
                 'message' => !$driver->isDriver() ? 'Not a driver' : 'Driver not active'
             ], 403);
         }
         if (!$driver->is_online) {
             return response()->json([
-                'status'  => false, 
+                'status'  => false,
                 'message' => 'Driver is offline. Please go online to update location.'
             ], 403);
         }
@@ -47,7 +49,7 @@ class DriverLocationController extends Controller
         |--------------------------------------------------------------------------
         */
         $driverKey = "driver:{$driver->id}:location";
-        
+
         // hmget returns an array of values, indexed sequentially
         $oldState   = Redis::hmget($driverKey, ['lat', 'lng', 'geohash']);
         $oldLat     = $oldState[0] ?? null;
@@ -72,7 +74,7 @@ class DriverLocationController extends Controller
         | 4. Compute New State & Dispatch Events
         |--------------------------------------------------------------------------
         */
-        $newGeohash = GeoHash::encode($lat, $lng, 5);
+        $newGeohash = GeoHash::encode($lat, $lng, self::DRIVER_LOCATION_GEOHASH_PRECISION);
 
         // Scenario A: First time entering a location (No old geohash)
         if (!$oldGeohash) {
@@ -86,11 +88,13 @@ class DriverLocationController extends Controller
 
             $this->addDriverToGeohash($driver->id, $newGeohash);
             $this->broadcastLocation($driver->id, $lat, $lng, $newGeohash, 'driver_entered', $data['bearing'] ?? null, $data['speed'] ?? null);
+        } elseif ($lat != $oldLat || $lng != $oldLng) {
+            // Update location without changing geohash (e.g., moved within the same geohash)
+            $this->addDriverToGeohash($driver->id, $newGeohash); // Ensure presence in set
+            $this->broadcastLocation($driver->id, $lat, $lng, $newGeohash, 'driver_moved', $data['bearing'] ?? null, $data['speed'] ?? null);
         }
         // Scenario C: Moved within the SAME geohash
         else {
-            $this->addDriverToGeohash($driver->id, $newGeohash); // Ensure presence in set
-            $this->broadcastLocation($driver->id, $lat, $lng, $newGeohash, 'driver_moved', $data['bearing'] ?? null, $data['speed'] ?? null);
         }
 
         /*

@@ -10,6 +10,8 @@ use Illuminate\Support\Facades\Redis;
 
 class ClientNearbyDriversController extends Controller
 {
+    private const DRIVER_LOCATION_GEOHASH_PRECISION = 5;
+
     public function index(Request $request)
     {
         $data = $request->validate([
@@ -18,7 +20,7 @@ class ClientNearbyDriversController extends Controller
         ]);
 
         // geohash الخاص بالعميل
-        $geohash = GeoHash::encode($data['lat'], $data['lng'], 7);
+        $geohash = GeoHash::encode($data['lat'], $data['lng'], self::DRIVER_LOCATION_GEOHASH_PRECISION);
 
         // هات IDs السائقين في نفس geohash
         $driverIds = Redis::smembers("geohash:drivers:{$geohash}");
@@ -44,6 +46,7 @@ class ClientNearbyDriversController extends Controller
         return response()->json([
             'status'  => true,
             'geohash' => $geohash,
+            'channel' => "nearby.drivers.{$geohash}",
             'drivers' => $drivers,
         ]);
     }

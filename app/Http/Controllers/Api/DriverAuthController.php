@@ -33,7 +33,7 @@ class DriverAuthController extends Controller
 
         $user = Driver::where('phone', $request->input('phone'))->first();
         if (! $user) return response()->json(['message' => 'User not found'], 404);
-        if($user->status === 'disactive') {
+        if ($user->status === 'disactive') {
             return response()->json(['message' => 'Your account is deactivated.'], 403);
         }
         $this->otpService->issue($user->id, $user->phone);
@@ -67,7 +67,7 @@ class DriverAuthController extends Controller
             return response()->json(['message' => 'Invalid or expired OTP'], 401);
         }
         $user->status = 'active';
-        if(! $user->is_phone_verified) {
+        if (! $user->is_phone_verified) {
             $user->is_phone_verified = true;
             $user->save();
         }
@@ -75,6 +75,7 @@ class DriverAuthController extends Controller
             $user->status = 'pending_document';
             $user->save();
         }
+        
         $token = $user->createToken('api-token')->plainTextToken;
         $user->is_online = true;
         $user->save();
@@ -206,7 +207,7 @@ class DriverAuthController extends Controller
         $driver->email      = $request->email;
 
         // Handle profile image upload
- if ($request->hasFile('profile_image') && $request->file('profile_image')->isValid()) {
+        if ($request->hasFile('profile_image') && $request->file('profile_image')->isValid()) {
             // delete old image if exists
             if ($driver->profile_image) {
                 $this->deleteStoredFile($driver->profile_image);
@@ -300,4 +301,3 @@ class DriverAuthController extends Controller
         }
     }
 }
-
