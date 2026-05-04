@@ -41,8 +41,10 @@ class TripRepository
         $totalKm = 0;
         for ($i = 0; $i < count($points) - 1; $i++) {
             $totalKm += GeoHash::distanceKm(
-                $points[$i]['lat'], $points[$i]['lng'],
-                $points[$i + 1]['lat'], $points[$i + 1]['lng']
+                $points[$i]['lat'],
+                $points[$i]['lng'],
+                $points[$i + 1]['lat'],
+                $points[$i + 1]['lng']
             );
         }
 
@@ -155,14 +157,15 @@ class TripRepository
 
             // Broadcast to nearby drivers
             // Broadcast to nearby drivers: collect members efficiently and fetch drivers in one query
-            $this->TripRequestFormate($trip , 'new_trip_request');
+            $this->TripRequestFormate($trip, 'new_trip_request');
 
             NewTripRetryJob::dispatch($trip->id, 0)->delay(now()->addMinutes(2));
 
             return $trip;
         });
     }
-    public function TripRequestFormate(Trip $trip , $type = 'new_trip_request') {
+    public function TripRequestFormate(Trip $trip, $type = 'new_trip_request')
+    {
         $originGeohash = GeoHash::encode($trip->origin_lat, $trip->origin_lng, 5);
         $cells = array_merge([$originGeohash], GeoHash::neighbors($originGeohash));
         $nearbyDrivers = [];
@@ -181,8 +184,8 @@ class TripRepository
                 $query->where('trip_type_id', $trip->trip_type_id);
             })->get();
             foreach ($drivers as $driver) {
-                broadcast(new NewTripRequest($trip, $driver->id , $type));
-                if($type === 'new_trip_request') {
+                broadcast(new NewTripRequest($trip, $driver->id, $type));
+                if ($type === 'new_trip_request') {
                     $this->notificationService->notifyNewTripRequest($trip, $driver);
                 }
             }
@@ -277,7 +280,7 @@ class TripRepository
 
             // Broadcast + notify
             broadcast(new TripAccepted($trip))->toOthers();
-            $this->TripRequestFormate($trip , 'remove_trip_request');
+            $this->TripRequestFormate($trip, 'remove_trip_request');
             $trip->load('client');
             $this->notificationService->notifyTripAccepted($trip);
 
@@ -295,89 +298,94 @@ class TripRepository
         if ($trip->driver_id) {
             $trip->driver()->update(['is_idle' => true]);
         }
-
-        if ($beforeStart) {
-            try {
-                $billing = $trip->billing_breakdown ?? [];
-                if ($trip->driver_credited && $trip->driver) {
-                    $deduct = $trip->driver_credit_amount ?? ($billing['driver_credit_amount'] ?? 0);
-                    if ($deduct > 0) {
-                        $this->walletService->decrement($trip->driver, (float) $deduct, 'trip.client_cancel_revert_driver_credit', [
-                            'trip_id' => $trip->id,
-                        ]);
+        if ($trip->status === 'searching_driver') {
+            $this->TripRequestFormate($trip, 'remove_trip_request');
+        } else {
+            if ($beforeStart) {
+                try {
+                    $billing = $trip->billing_breakdown ?? [];
+                    if ($trip->driver_credited && $trip->driver) {
+                        $deduct = $trip->driver_credit_amount ?? ($billing['driver_credit_amount'] ?? 0);
+                        if ($deduct > 0) {
+                            $this->walletService->decrement($trip->driver, (float) $deduct, 'trip.client_cancel_revert_driver_credit', [
+                                'trip_id' => $trip->id,
+                            ]);
+                        }
+                        $trip->update(['driver_credited' => false]);
                     }
-                    $trip->update(['driver_credited' => false]);
-                }
 
-                if (! empty($billing['wallet_charged']) && $billing['wallet_charged'] > 0) {
-                    if ($trip->client && $trip->client->wallet) {
-                        $this->walletService->increment($trip->client, (float) $billing['wallet_charged'], 'trip.client_cancel_wallet_refund', [
-                            'trip_id' => $trip->id,
-                        ]);
-                    }
-                } elseif (! empty($billing['baymob_transaction_id'])) {
-                    $gateway = $this->paymentGatewayFactory->get('visa');
-                    if ($gateway) {
-                        $gateway->refund($billing['baymob_transaction_id'], $billing['baymob_charged_amount'] ?? $trip->final_price);
-                    } else {
-                        Log::error('No payment gateway available to process refund: ' . ($billing['baymob_transaction_id'] ?? '')); 
-                    }
-                } elseif ($trip->is_paid) {
-                    if ($trip->client && $trip->client->wallet) {
-                        $this->walletService->increment($trip->client, (float) $trip->final_price, 'trip.client_cancel_paid_refund', [
-                            'trip_id' => $trip->id,
-                        ]);
-                    }
-                }
-
-                $trip->update(['is_paid' => false, 'paid_at' => null]);
-            } catch (\Exception $e) {
-                Log::error('Failed to refund client on cancel: ' . $e->getMessage());
-            }
-
-            // Notify
-            broadcast(new \App\Events\TripCancelled($trip))->toOthers();
-            $this->notificationService->notifyTripCancelled($trip, 'client');
-
-            try { $client->increment('trips_cancelled_count'); } catch (\Exception $e) { Log::error($e->getMessage()); }
-        }
-        elseif($trip->status === 'searching_driver') {
-            $this->TripRequestFormate($trip , 'remove_trip_request');
-        }
-        else {
-            // After start: charge base fare as cancellation fee
-            try {
-                $fee = (float) ($trip->base_fare ?? 0);
-                if ($trip->client && $trip->client->wallet && $trip->client->wallet->balance >= $fee) {
-                    $this->walletService->decrement($trip->client, $fee, 'trip.client_cancel_fee', [
-                        'trip_id' => $trip->id,
-                    ]);
-                } elseif ($trip->payment_method === 'visa') {
-                    try {
+                    if (! empty($billing['wallet_charged']) && $billing['wallet_charged'] > 0) {
+                        if ($trip->client && $trip->client->wallet) {
+                            $this->walletService->increment($trip->client, (float) $billing['wallet_charged'], 'trip.client_cancel_wallet_refund', [
+                                'trip_id' => $trip->id,
+                            ]);
+                        }
+                    } elseif (! empty($billing['baymob_transaction_id'])) {
                         $gateway = $this->paymentGatewayFactory->get('visa');
                         if ($gateway) {
-                            $gateway->charge(['amount' => $fee, 'currency' => 'Egp', 'description' => 'Cancellation fee', 'customer' => ['id' => $trip->client->id]]);
+                            $gateway->refund($billing['baymob_transaction_id'], $billing['baymob_charged_amount'] ?? $trip->final_price);
                         } else {
-                            Log::error('No payment gateway available to charge cancellation fee');
+                            Log::error('No payment gateway available to process refund: ' . ($billing['baymob_transaction_id'] ?? ''));
                         }
-                    } catch (\Exception $e) { Log::error($e->getMessage()); }
-                } else {
-                    $trip->increment('reminder', $fee);
+                    } elseif ($trip->is_paid) {
+                        if ($trip->client && $trip->client->wallet) {
+                            $this->walletService->increment($trip->client, (float) $trip->final_price, 'trip.client_cancel_paid_refund', [
+                                'trip_id' => $trip->id,
+                            ]);
+                        }
+                    }
+
+                    $trip->update(['is_paid' => false, 'paid_at' => null]);
+                } catch (\Exception $e) {
+                    Log::error('Failed to refund client on cancel: ' . $e->getMessage());
                 }
 
-                if ($trip->driver) {
-                    if ($fee > 0) {
-                        $this->walletService->increment($trip->driver, $fee, 'trip.client_cancel_fee_credit_driver', [
+                // Notify
+                broadcast(new \App\Events\TripCancelled($trip))->toOthers();
+                $this->notificationService->notifyTripCancelled($trip, 'client');
+
+                try {
+                    $client->increment('trips_cancelled_count');
+                } catch (\Exception $e) {
+                    Log::error($e->getMessage());
+                }
+            } else {
+                // After start: charge base fare as cancellation fee
+                try {
+                    $fee = (float) ($trip->base_fare ?? 0);
+                    if ($trip->client && $trip->client->wallet && $trip->client->wallet->balance >= $fee) {
+                        $this->walletService->decrement($trip->client, $fee, 'trip.client_cancel_fee', [
                             'trip_id' => $trip->id,
                         ]);
+                    } elseif ($trip->payment_method === 'visa') {
+                        try {
+                            $gateway = $this->paymentGatewayFactory->get('visa');
+                            if ($gateway) {
+                                $gateway->charge(['amount' => $fee, 'currency' => 'Egp', 'description' => 'Cancellation fee', 'customer' => ['id' => $trip->client->id]]);
+                            } else {
+                                Log::error('No payment gateway available to charge cancellation fee');
+                            }
+                        } catch (\Exception $e) {
+                            Log::error($e->getMessage());
+                        }
+                    } else {
+                        $trip->increment('reminder', $fee);
                     }
-                }
-            } catch (\Exception $e) {
-                Log::error('Failed to apply cancellation billing: ' . $e->getMessage());
-            }
 
-            broadcast(new \App\Events\TripCancelled($trip))->toOthers();
-            $this->notificationService->notifyTripCancelled($trip, 'client');
+                    if ($trip->driver) {
+                        if ($fee > 0) {
+                            $this->walletService->increment($trip->driver, $fee, 'trip.client_cancel_fee_credit_driver', [
+                                'trip_id' => $trip->id,
+                            ]);
+                        }
+                    }
+                } catch (\Exception $e) {
+                    Log::error('Failed to apply cancellation billing: ' . $e->getMessage());
+                }
+
+                broadcast(new \App\Events\TripCancelled($trip))->toOthers();
+                $this->notificationService->notifyTripCancelled($trip, 'client');
+            }
         }
 
         return ['status' => true, 'message' => 'Trip cancelled successfully', 'trip' => $trip];
@@ -409,12 +417,12 @@ class TripRepository
                     ]);
                 }
             } elseif (! empty($billing['baymob_transaction_id'])) {
-                    $gateway = $this->paymentGatewayFactory->get('visa');
-                    if ($gateway) {
-                        $gateway->refund($billing['baymob_transaction_id'], $billing['baymob_charged_amount'] ?? $trip->final_price);
-                    } else {
-                        Log::error('No payment gateway available to process refund: ' . ($billing['baymob_transaction_id'] ?? ''));
-                    }
+                $gateway = $this->paymentGatewayFactory->get('visa');
+                if ($gateway) {
+                    $gateway->refund($billing['baymob_transaction_id'], $billing['baymob_charged_amount'] ?? $trip->final_price);
+                } else {
+                    Log::error('No payment gateway available to process refund: ' . ($billing['baymob_transaction_id'] ?? ''));
+                }
             } elseif ($trip->is_paid) {
                 if ($trip->client && $trip->client->wallet) {
                     $this->walletService->increment($trip->client, (float) $trip->final_price, 'trip.driver_cancel_paid_refund', [
@@ -431,7 +439,11 @@ class TripRepository
         broadcast(new \App\Events\TripCancelled($trip))->toOthers();
         $this->notificationService->notifyTripCancelled($trip, 'driver');
 
-        try { $driver->increment('trips_cancelled_count'); } catch (\Exception $e) { Log::error($e->getMessage()); }
+        try {
+            $driver->increment('trips_cancelled_count');
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
+        }
 
         return ['status' => true, 'message' => 'Trip cancelled successfully', 'trip_id' => $trip->id];
     }
