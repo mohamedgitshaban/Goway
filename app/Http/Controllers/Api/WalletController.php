@@ -12,6 +12,30 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class WalletController extends Controller
 {
+    public function currentBalance(Request $request)
+    {
+        $user = $request->user();
+
+        if (! $user || $user->usertype !== 'client') {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $wallet = $user->wallet;
+
+        if (! $wallet) {
+            $wallet = Wallet::create([
+                'user_id' => $user->id,
+                'balance' => 0,
+            ]);
+        }
+
+        return response()->json([
+            'status' => true,
+            'wallet_id' => $wallet->id,
+            'balance' => (float) $wallet->balance,
+        ]);
+    }
+
     public function index(Request $request)
     {
         $limit   = $request->input('limit', 10);

@@ -159,6 +159,7 @@ Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(functio
     });
     Route::post('/fcm-token', [NotificationController::class, 'updateFcmToken']);
 
+    Route::get('/wallet/balance', [WalletController::class, 'currentBalance']);
     Route::get('/wallet/transactions', [WalletTransactionController::class, 'clientTransactions']);
 
     // Safety access settings
