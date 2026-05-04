@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\TripNegotiationResource;
 use App\Models\Trip;
 use Illuminate\Http\Request;
 use App\Models\Rating;
@@ -353,8 +354,6 @@ class DriverTripController extends Controller
             ['proposed_price' => $data['proposed_price'], 'status' => 'pending']
         );
         
-        $negotiation->load('driver');
-
         broadcast(new \App\Events\NegotiationOffer($trip, $negotiation))->toOthers();
 
         $trip->load('client');
@@ -364,7 +363,7 @@ class DriverTripController extends Controller
             'status' => true,
             'message' => 'Offer sent to client',
             'proposed_price' => $data['proposed_price'],
-            'negotiation' => $negotiation
+            'negotiation' => new TripNegotiationResource($negotiation)
         ]);
     }
 

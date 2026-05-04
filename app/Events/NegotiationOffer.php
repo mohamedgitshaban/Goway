@@ -3,6 +3,7 @@
 namespace App\Events;
 
 use App\Http\Resources\DriverResource;
+use App\Http\Resources\TripNegotiationResource;
 use App\Http\Resources\TripResource;
 use App\Models\Trip;
 use Illuminate\Broadcasting\Channel;
@@ -28,8 +29,7 @@ class NegotiationOffer implements ShouldBroadcastNow
     {
         return [
             'trip' =>  new TripResource($this->trip),
-            'negotiation' => $this->negotiation,
-            'driver' => $this->negotiation ? new DriverResource($this->negotiation->driver) : null,
+            'negotiation' => new TripNegotiationResource($this->negotiation),            
             'created_at' => now()->toISOString(),
         ];
     }
