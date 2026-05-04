@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\TripSafetyController;
 use App\Http\Controllers\Api\TripTypeController;
 use App\Http\Controllers\Api\UserCouponController;
 use App\Http\Controllers\Api\WalletController;
+use App\Http\Controllers\Api\WalletTransactionController;
 use App\Http\Controllers\VehicleModelController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -67,6 +68,7 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
     Route::post('/location', [\App\Http\Controllers\Api\DriverLocationController::class, 'update']);
 
     Route::prefix('trips')->group(function () {
+        Route::get('/stats/completed-average-7-days', [\App\Http\Controllers\Api\DriverTripController::class, 'completedAverageLast7Days']);
         Route::post('/{trip}/accept', [\App\Http\Controllers\Api\DriverTripController::class, 'accept']);
         Route::post('/{trip}/arrived', [\App\Http\Controllers\Api\DriverTripController::class, 'arrived']);
         Route::post('/{trip}/start', [\App\Http\Controllers\Api\DriverTripController::class, 'start']);
@@ -97,6 +99,8 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
     });
     Route::post('/fcm-token', [NotificationController::class, 'updateFcmToken']);
+
+    Route::get('/wallet/transactions', [WalletTransactionController::class, 'driverTransactions']);
 
     // Safety access settings
     Route::get('/safety-access', [SafetyAccessController::class, 'show']);
@@ -154,6 +158,8 @@ Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
     });
     Route::post('/fcm-token', [NotificationController::class, 'updateFcmToken']);
+
+    Route::get('/wallet/transactions', [WalletTransactionController::class, 'clientTransactions']);
 
     // Safety access settings
     Route::get('/safety-access', [SafetyAccessController::class, 'show']);
@@ -252,6 +258,7 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::get('/', [WalletController::class, 'index'])->middleware('admin.permission:wallets.index');
         Route::get('/{id}', [WalletController::class, 'show'])->middleware('admin.permission:wallets.show');
     });
+    Route::get('/wallet-transactions', [WalletTransactionController::class, 'adminTransactions'])->middleware('admin.permission:wallets.index');
     Route::prefix('documents')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\DriverDocumentController::class, 'index'])->middleware('admin.permission:documents.index');
         Route::post('/{id}/accept', [\App\Http\Controllers\Api\DriverDocumentController::class, 'accept'])->middleware('admin.permission:documents.accept');

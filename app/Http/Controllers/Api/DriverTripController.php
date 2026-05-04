@@ -9,12 +9,15 @@ use App\Models\Rating;
 use App\Http\Resources\TripResource;
 use App\Services\NotificationService;
 use App\Repositories\TripRepository;
+use App\Services\WalletService;
+use Illuminate\Support\Facades\Log;
 
 class DriverTripController extends Controller
 {
     public function __construct(
         protected TripRepository $trips,
-        protected NotificationService $notificationService
+        protected NotificationService $notificationService,
+        protected WalletService $walletService
     ) {}
 
     public function accept(Request $request, Trip $trip)
@@ -101,6 +104,64 @@ class DriverTripController extends Controller
         $data = $query->paginate($limit)->appends($request->query());
 
         return TripResource::collection($data);
+    }
+
+    public function completedAverageLast7Days(Request $request)
+    {
+        $driver = $request->user();
+
+        if (! $driver || $driver->usertype !== 'driver') {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $startDate = today()->subDays(6);
+        $daily = [];
+        $sumCompleted = 0;
+        $sumEffectiveTotal = 0;
+        $sumDailyAverages = 0;
+
+        for ($i = 0; $i < 7; $i++) {
+            $date = $startDate->copy()->addDays($i);
+
+            $baseQuery = Trip::where('driver_id', $driver->id)
+                ->whereDate('created_at', $date);
+
+            $totalTrips = (clone $baseQuery)->count();
+            $completedTrips = (clone $baseQuery)->where('status', 'completed')->count();
+            $cancelledByClient = (clone $baseQuery)->where('status', 'cancelled_by_client')->count();
+
+            $effectiveTotal = max(0, $totalTrips - $cancelledByClient);
+            $dailyAverage = $effectiveTotal > 0 ? round($completedTrips / $effectiveTotal, 4) : 0.0;
+
+            $daily[] = [
+                'date' => $date->toDateString(),
+                'completed_trips' => $completedTrips,
+                'total_trips' => $totalTrips,
+                'cancelled_by_client' => $cancelledByClient,
+                'effective_total' => $effectiveTotal,
+                'average' => $dailyAverage,
+            ];
+
+            $sumCompleted += $completedTrips;
+            $sumEffectiveTotal += $effectiveTotal;
+            $sumDailyAverages += $dailyAverage;
+        }
+
+        $overallAverage = $sumEffectiveTotal > 0 ? round($sumCompleted / $sumEffectiveTotal, 4) : 0.0;
+        $averageOfDaily = round($sumDailyAverages / 7, 4);
+
+        return response()->json([
+            'status' => true,
+            'formula' => 'completed_trips / (total_trips - cancelled_by_client)',
+            'period' => [
+                'from' => $startDate->toDateString(),
+                'to' => today()->toDateString(),
+                'days' => 7,
+            ],
+            'daily' => $daily,
+            'overall_average' => $overallAverage,
+            'average_of_daily' => $averageOfDaily,
+        ]);
     }
 
     public function arrived(Request $request, Trip $trip)
@@ -192,18 +253,23 @@ class DriverTripController extends Controller
         if ($trip->payment_method === 'cash') {
             $profitMargin = $trip->tripType?->profit_margin ?? 0;
             $driverShare = $trip->final_price - ($trip->final_price * ($profitMargin / 100));
-            $driverWallet = $driver->wallet()->first() ?: $driver->wallet()->create(['balance' => 0]);
-            $driverWallet->decrement('balance', $driverShare);
+            $this->walletService->decrement($driver, (float) $driverShare, 'trip.complete_cash_settlement', [
+                'trip_id' => $trip->id,
+            ]);
         }
         if (isset($data['cost'])) {
-            $trip->client->wallet()->increment('balance', $data['cost']-$trip->final_price);
+            $extraCost = (float) $data['cost'] - (float) $trip->final_price;
+            if ($extraCost > 0) {
+                $this->walletService->increment($trip->client, $extraCost, 'trip.complete_extra_cost_refund', [
+                    'trip_id' => $trip->id,
+                ]);
+            }
         }
         $startedAt = $trip->started_at;
         $completedAt = now();
         $durationMinutes = $startedAt ? $startedAt->diffInMinutes($completedAt) : 0;
 
         $trip->update([
-             'status' => 'paid',
             'paid_at' => now(),
             'status' => 'completed',
             'completed_at' => $completedAt,
@@ -224,12 +290,15 @@ class DriverTripController extends Controller
                 if ($completedCount === 5) {
                     $client = $trip->client;
                     if ($client && $client->wallet) {
-                        $client->wallet->increment('balance', 100);
+                        $this->walletService->increment($client, 100, 'trip.complete_bonus', [
+                            'trip_id' => $trip->id,
+                            'completed_trips_count' => 5,
+                        ]);
                     }
                 }
             }
         } catch (\Exception $e) {
-            \Log::error('Failed to credit wallet on trip completion: ' . $e->getMessage());
+            Log::error('Failed to credit wallet on trip completion: ' . $e->getMessage());
         }
 
         return response()->json([

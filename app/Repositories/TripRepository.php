@@ -266,10 +266,11 @@ class TripRepository
 
             // Credit driver if paid
             if ($trip->is_paid && ! $trip->driver_credited) {
-                $driverWallet = $driver->wallet()->first() ?: $driver->wallet()->create(['balance' => 0]);
                 $credit = $trip->driver_credit_amount ?? ($billing['driver_credit_amount'] ?? $driverCreditAmount);
                 if ($credit > 0) {
-                    $driverWallet->increment('balance', $credit);
+                    $this->walletService->increment($driver, (float) $credit, 'trip.assign_driver_credit', [
+                        'trip_id' => $trip->id,
+                    ]);
                     $trip->update(['driver_credited' => true]);
                 }
             }
@@ -300,16 +301,19 @@ class TripRepository
                 $billing = $trip->billing_breakdown ?? [];
                 if ($trip->driver_credited && $trip->driver) {
                     $deduct = $trip->driver_credit_amount ?? ($billing['driver_credit_amount'] ?? 0);
-                    $driverWallet = $trip->driver->wallet()->first();
-                    if ($driverWallet && $driverWallet->balance >= $deduct && $deduct > 0) {
-                        $driverWallet->decrement('balance', $deduct);
+                    if ($deduct > 0) {
+                        $this->walletService->decrement($trip->driver, (float) $deduct, 'trip.client_cancel_revert_driver_credit', [
+                            'trip_id' => $trip->id,
+                        ]);
                     }
                     $trip->update(['driver_credited' => false]);
                 }
 
                 if (! empty($billing['wallet_charged']) && $billing['wallet_charged'] > 0) {
                     if ($trip->client && $trip->client->wallet) {
-                        $trip->client->wallet->increment('balance', $billing['wallet_charged']);
+                        $this->walletService->increment($trip->client, (float) $billing['wallet_charged'], 'trip.client_cancel_wallet_refund', [
+                            'trip_id' => $trip->id,
+                        ]);
                     }
                 } elseif (! empty($billing['baymob_transaction_id'])) {
                     $gateway = $this->paymentGatewayFactory->get('visa');
@@ -320,7 +324,9 @@ class TripRepository
                     }
                 } elseif ($trip->is_paid) {
                     if ($trip->client && $trip->client->wallet) {
-                        $trip->client->wallet->increment('balance', $trip->final_price);
+                        $this->walletService->increment($trip->client, (float) $trip->final_price, 'trip.client_cancel_paid_refund', [
+                            'trip_id' => $trip->id,
+                        ]);
                     }
                 }
 
@@ -343,7 +349,9 @@ class TripRepository
             try {
                 $fee = (float) ($trip->base_fare ?? 0);
                 if ($trip->client && $trip->client->wallet && $trip->client->wallet->balance >= $fee) {
-                    $trip->client->wallet->decrement('balance', $fee);
+                    $this->walletService->decrement($trip->client, $fee, 'trip.client_cancel_fee', [
+                        'trip_id' => $trip->id,
+                    ]);
                 } elseif ($trip->payment_method === 'visa') {
                     try {
                         $gateway = $this->paymentGatewayFactory->get('visa');
@@ -358,8 +366,11 @@ class TripRepository
                 }
 
                 if ($trip->driver) {
-                    $driverWallet = $trip->driver->wallet()->first() ?: $trip->driver->wallet()->create(['balance' => 0]);
-                    if ($fee > 0) $driverWallet->increment('balance', $fee);
+                    if ($fee > 0) {
+                        $this->walletService->increment($trip->driver, $fee, 'trip.client_cancel_fee_credit_driver', [
+                            'trip_id' => $trip->id,
+                        ]);
+                    }
                 }
             } catch (\Exception $e) {
                 Log::error('Failed to apply cancellation billing: ' . $e->getMessage());
@@ -383,16 +394,19 @@ class TripRepository
 
             if ($trip->driver_credited && $trip->driver) {
                 $deduct = $trip->driver_credit_amount ?? ($billing['driver_credit_amount'] ?? 0);
-                $driverWallet = $trip->driver->wallet()->first();
-                if ($driverWallet && $driverWallet->balance >= $deduct && $deduct > 0) {
-                    $driverWallet->decrement('balance', $deduct);
+                if ($deduct > 0) {
+                    $this->walletService->decrement($trip->driver, (float) $deduct, 'trip.driver_cancel_revert_driver_credit', [
+                        'trip_id' => $trip->id,
+                    ]);
                 }
                 $trip->update(['driver_credited' => false]);
             }
 
             if (! empty($billing['wallet_charged']) && $billing['wallet_charged'] > 0) {
                 if ($trip->client && $trip->client->wallet) {
-                    $trip->client->wallet->increment('balance', $billing['wallet_charged']);
+                    $this->walletService->increment($trip->client, (float) $billing['wallet_charged'], 'trip.driver_cancel_wallet_refund', [
+                        'trip_id' => $trip->id,
+                    ]);
                 }
             } elseif (! empty($billing['baymob_transaction_id'])) {
                     $gateway = $this->paymentGatewayFactory->get('visa');
@@ -403,7 +417,9 @@ class TripRepository
                     }
             } elseif ($trip->is_paid) {
                 if ($trip->client && $trip->client->wallet) {
-                    $trip->client->wallet->increment('balance', $trip->final_price);
+                    $this->walletService->increment($trip->client, (float) $trip->final_price, 'trip.driver_cancel_paid_refund', [
+                        'trip_id' => $trip->id,
+                    ]);
                 }
             }
 
