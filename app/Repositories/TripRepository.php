@@ -292,9 +292,6 @@ class TripRepository
     {
         // Decide if cancellation before start or after
         $beforeStart = in_array($trip->status, ['driver_assigned', 'driver_arrived']);
-
-        $trip->update(['status' => 'cancelled_by_client', 'cancelled_at' => now(), 'cancelled_by' => 'client', 'cancel_reason' => $reason, 'cancel_description' => $description]);
-
         if ($trip->driver_id) {
             $trip->driver()->update(['is_idle' => true]);
         }
@@ -387,6 +384,7 @@ class TripRepository
                 $this->notificationService->notifyTripCancelled($trip, 'client');
             }
         }
+        $trip->update(['status' => 'cancelled_by_client', 'cancelled_at' => now(), 'cancelled_by' => 'client', 'cancel_reason' => $reason, 'cancel_description' => $description]);
 
         return ['status' => true, 'message' => 'Trip cancelled successfully', 'trip' => $trip];
     }
