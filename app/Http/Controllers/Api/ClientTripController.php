@@ -129,7 +129,7 @@ class ClientTripController extends Controller
         if (!$coupon) {
             return response()->json([
                 'status' => false,
-                'message' => 'Coupon not found or inactive',
+                'message' => __('messages.coupon_not_found_or_inactive'),
             ], 404);
         }
 
@@ -143,13 +143,13 @@ class ClientTripController extends Controller
         if (!$isValid) {
             return response()->json([
                 'status' => false,
-                'message' => 'Coupon is not valid',
+                'message' => __('messages.coupon_not_valid'),
             ], 400);
         }
 
         return response()->json([
             'status' => true,
-            'message' => 'Coupon is valid',
+            'message' => __('messages.coupon_valid'),
             'coupon' => $coupon,
         ]);
     }
@@ -166,7 +166,7 @@ class ClientTripController extends Controller
         ]);
 
         $distanceKm = $this->trips->calculateTripDistance($data);
-        $tripTypes = \App\Models\TripType::all();
+        $tripTypes = \App\Models\TripType::with('activeOffer')->get();
 
         $estimates = [];
 
@@ -185,6 +185,15 @@ class ClientTripController extends Controller
                 'base_fare'    => $baseFare,
                 'price_per_km' => $pricePerKm,
                 'total'        => $total,
+                'offer'        => $type->activeOffer ? [
+                    'id' => $type->activeOffer->id,
+                    'title_ar' => $type->activeOffer->title_ar,
+                    'title_en' => $type->activeOffer->title_en,
+                    'image' => $type->activeOffer->image,
+                    'discount_type' => $type->activeOffer->discount_type,
+                    'discount_value' => $type->activeOffer->discount_value,
+                    'max_discount_amount' => $type->activeOffer->max_discount_amount,
+                ] : null,
             ];
         }
 

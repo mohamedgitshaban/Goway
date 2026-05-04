@@ -9,7 +9,6 @@ use App\Models\Driver;
 use App\Models\Offer;
 use App\Models\Coupon;
 use App\Services\WalletService;
-use App\Services\Payments\PaymentGatewayInterface;
 use App\Services\Payments\PaymentGatewayFactoryInterface;
 use App\Services\NotificationService;
 use App\Jobs\NewTripRetryJob;
@@ -18,7 +17,6 @@ use Illuminate\Support\Facades\Redis;
 use App\Support\GeoHash;
 use App\Events\NewTripRequest;
 use App\Events\TripAccepted;
-use App\Events\TripLocked;
 use Illuminate\Support\Facades\Log;
 
 class TripRepository
@@ -157,35 +155,39 @@ class TripRepository
 
             // Broadcast to nearby drivers
             // Broadcast to nearby drivers: collect members efficiently and fetch drivers in one query
-            $originGeohash = GeoHash::encode($trip->origin_lat, $trip->origin_lng, 5);
-            $cells = array_merge([$originGeohash], GeoHash::neighbors($originGeohash));
-            $nearbyDrivers = [];
-            foreach ($cells as $cell) {
-                $members = Redis::smembers("geohash:drivers:{$cell}");
-                if (! empty($members)) {
-                    foreach ($members as $m) {
-                        $nearbyDrivers[] = $m;
-                    }
-                }
-            }
-            $nearbyDrivers = array_values(array_unique($nearbyDrivers));
-
-            if (! empty($nearbyDrivers)) {
-                $drivers = Driver::whereIn('id', $nearbyDrivers)->where('is_online', 1)->where('is_idle', 1)->whereHas('activeVehicle', function ($query) use ($trip) {
-                    $query->where('trip_type_id', $trip->trip_type_id);
-                })->get();
-                foreach ($drivers as $driver) {
-                    broadcast(new NewTripRequest($trip, $driver->id));
-                    $this->notificationService->notifyNewTripRequest($trip, $driver);
-                }
-            }
+            $this->TripRequestFormate($trip , 'new_trip_request');
 
             NewTripRetryJob::dispatch($trip->id, 0)->delay(now()->addMinutes(2));
 
             return $trip;
         });
     }
+    public function TripRequestFormate(Trip $trip , $type = 'new_trip_request') {
+        $originGeohash = GeoHash::encode($trip->origin_lat, $trip->origin_lng, 5);
+        $cells = array_merge([$originGeohash], GeoHash::neighbors($originGeohash));
+        $nearbyDrivers = [];
+        foreach ($cells as $cell) {
+            $members = Redis::smembers("geohash:drivers:{$cell}");
+            if (! empty($members)) {
+                foreach ($members as $m) {
+                    $nearbyDrivers[] = $m;
+                }
+            }
+        }
+        $nearbyDrivers = array_values(array_unique($nearbyDrivers));
 
+        if (! empty($nearbyDrivers)) {
+            $drivers = Driver::whereIn('id', $nearbyDrivers)->where('is_online', 1)->where('is_idle', 1)->whereHas('activeVehicle', function ($query) use ($trip) {
+                $query->where('trip_type_id', $trip->trip_type_id);
+            })->get();
+            foreach ($drivers as $driver) {
+                broadcast(new NewTripRequest($trip, $driver->id , $type));
+                if($type === 'new_trip_request') {
+                    $this->notificationService->notifyNewTripRequest($trip, $driver);
+                }
+            }
+        }
+    }
     public function assignDriver(Trip $trip, $driver): array
     {
         return DB::transaction(function () use ($trip, $driver) {
@@ -274,7 +276,7 @@ class TripRepository
 
             // Broadcast + notify
             broadcast(new TripAccepted($trip))->toOthers();
-            broadcast(new TripLocked($trip->id, $trip->driver_id))->toOthers();
+            $this->TripRequestFormate($trip , 'remove_trip_request');
             $trip->load('client');
             $this->notificationService->notifyTripAccepted($trip);
 
@@ -334,22 +336,7 @@ class TripRepository
             try { $client->increment('trips_cancelled_count'); } catch (\Exception $e) { Log::error($e->getMessage()); }
         }
         elseif($trip->status === 'searching_driver') {
-            // Find nearby drivers to notify them the trip is no longer available
-            $originGeohash = GeoHash::encode($trip->origin_lat, $trip->origin_lng, 5);
-            $cells = array_merge([$originGeohash], GeoHash::neighbors($originGeohash));
-            $nearbyDrivers = [];
-            foreach ($cells as $cell) {
-                $members = Redis::smembers("geohash:drivers:{$cell}");
-                if (!empty($members)) {
-                    foreach ($members as $m) {
-                        $nearbyDrivers[] = $m;
-                    }
-                }
-            }
-            $nearbyDrivers = array_values(array_unique($nearbyDrivers));
-
-            // If still searching for driver, just notify without charging
-            broadcast(new \App\Events\TripLocked($trip->id, $trip->driver_id, $nearbyDrivers))->toOthers();
+            $this->TripRequestFormate($trip , 'remove_trip_request');
         }
         else {
             // After start: charge base fare as cancellation fee

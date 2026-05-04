@@ -14,7 +14,8 @@ class NewTripRequest implements ShouldBroadcastNow
 
     public function __construct(
         public Trip $trip,
-        public int $driverId
+        public int $driverId,
+        public string $type = 'new_trip_request'
     ) {}
 
     public function broadcastOn()
@@ -24,7 +25,7 @@ class NewTripRequest implements ShouldBroadcastNow
 
     public function broadcastAs()
     {
-        return 'new_trip_request';
+        return 'trip_request';
     }
 
     public function broadcastWith()
@@ -32,6 +33,7 @@ class NewTripRequest implements ShouldBroadcastNow
         return [
             'trip' => new TripResource($this->trip),
             'trip_id' => $this->trip->id,
+            'type' => $this->type,
             'driver_id' => $this->driverId,
         ];
     }

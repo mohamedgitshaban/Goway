@@ -44,4 +44,9 @@ class TripType extends Model
     {
         return $this->hasMany(VehicleBrand::class, 'trip_type_id');
     }
+
+    public function activeOffer()
+    {
+        return $this->hasOne(Offer::class)->active();
+    }
 }

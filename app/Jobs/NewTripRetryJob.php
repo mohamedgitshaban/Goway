@@ -57,7 +57,7 @@ class NewTripRetryJob implements ShouldQueue
                     })
                     ->get();
                 foreach ($drivers as $driver) {
-                    broadcast(new NewTripRequest($trip, $driver->id));
+                    broadcast(new NewTripRequest($trip, $driver->id , 'new_trip_request_retry'));
                     $notification->notifyNewTripRequest($trip, $driver);
                 }
             }
