@@ -238,7 +238,7 @@ class ClientAuthController extends Controller
         // so this will only set the deleted_at timestamp.
         // We will not delete the personal_image here to allow for account restoration.
         $user->tokens()->delete();
-        $user->softDeletes();
+        $user->delete();
 
         return response()->json([
             'status' => true,

@@ -2,8 +2,11 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\SoftDeletes;
+
 class Admin extends User
 {
+    use SoftDeletes;
     protected $table = 'users';
 
     protected $fillable = [
