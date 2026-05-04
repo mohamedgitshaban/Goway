@@ -185,6 +185,7 @@ class ClientTripController extends Controller
                 'base_fare'    => $baseFare,
                 'price_per_km' => $pricePerKm,
                 'total'        => $total,
+                'after_offer'  => $type->activeOffer ? ($type->activeOffer->discount_type === 'percentage' ? $total * (1 - $type->activeOffer->discount_value / 100) : $total - $type->activeOffer->discount_value) : $total,
                 'offer'        => $type->activeOffer ? [
                     'id' => $type->activeOffer->id,
                     'title_ar' => $type->activeOffer->title_ar,
