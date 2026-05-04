@@ -16,8 +16,6 @@ class TripNegotiationResource extends JsonResource
             'status' => $this->status,
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),
-            'trip' => $this->whenLoaded('trip', fn () => new TripResource($this->trip)),
-            'driver' => $this->whenLoaded('driver', fn () => new DriverResource($this->driver)),
         ];
     }
 }

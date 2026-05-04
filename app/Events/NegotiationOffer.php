@@ -29,7 +29,8 @@ class NegotiationOffer implements ShouldBroadcastNow
     {
         return [
             'trip' =>  new TripResource($this->trip),
-            'negotiation' => new TripNegotiationResource($this->negotiation),            
+            'negotiation' => new TripNegotiationResource($this->negotiation), 
+            'driver' => new DriverResource($this->negotiation->driver),
             'created_at' => now()->toISOString(),
         ];
     }
