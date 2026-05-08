@@ -31,7 +31,7 @@ class NewConversation implements ShouldBroadcastNow
     {
         return [
             'conversation' => new ConversationResource(
-                $this->conversation->load(['user', 'latestMessage', 'trip'])
+                $this->conversation
             ),
             'chat_channel' => "chat.{$this->conversation->id}",
         ];

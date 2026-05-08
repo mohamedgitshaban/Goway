@@ -20,8 +20,8 @@ class ConversationResource extends JsonResource
             'admin_name'     => $this->admin?->name,
             'closed_at'      => $this->closed_at?->toISOString(),
             'created_at'     => $this->created_at->toISOString(),
-            'latest_message' => new MessageResource($this->whenLoaded('latestMessage')),
-            'messages'       => MessageResource::collection($this->whenLoaded('messages')),
+            'latest_message' => new MessageResource($this->latestMessage),
+            'messages'       => MessageResource::collection($this->messages),
             'unread_count'   => $this->when(
                 isset($this->unread_count),
                 $this->unread_count ?? 0
