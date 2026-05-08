@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\DriverResource;
+use App\Models\Client;
 use App\Models\Driver;
 use App\Models\Otp;
 use App\Services\OtpService;
@@ -29,6 +30,10 @@ class DriverAuthController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        if ($this->clientExistsWithPhone($request->input('phone'))) {
+            return response()->json(['message' => 'This phone is registered as a client account.'], 409);
         }
 
         $user = Driver::where('phone', $request->input('phone'))->first();
@@ -59,9 +64,13 @@ class DriverAuthController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        if ($this->clientExistsWithPhone($request->input('phone'))) {
+            return response()->json(['message' => 'This phone is registered as a client account.'], 409);
+        }
+
         $user = Driver::where('phone', $request->input('phone'))->first();
         if (! $user) return response()->json(['message' => 'User not found'], 404);
-
+        
         $otp = Otp::where('user_id', $user->id)->orderBy('expires_at', 'desc')->first();
         if (! $otp || $otp->code !== $request->input('otp') || $otp->expires_at->isPast()) {
             return response()->json(['message' => 'Invalid or expired OTP'], 401);
@@ -100,6 +109,11 @@ class DriverAuthController extends Controller
         }
 
         $data = $validator->validated();
+
+        if ($this->clientExistsWithPhone($data['phone'])) {
+            return response()->json(['message' => 'This phone is already used by a client account.'], 409);
+        }
+
         if ($request->hasFile('personal_image')) {
             $path = config('filesystems.disks.public.url') . '/' . $request->file('personal_image')->store('drivers/personal', 'public');
             $data['personal_image'] = $path;
@@ -132,6 +146,10 @@ class DriverAuthController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        if ($this->clientExistsWithPhone($request->input('phone'))) {
+            return response()->json(['message' => 'This phone is registered as a client account.'], 409);
         }
 
         $user = Driver::where('phone', $request->input('phone'))->first();
@@ -299,5 +317,10 @@ class DriverAuthController extends Controller
                 Redis::srem($key, $driverId);
             }
         }
+    }
+
+    private function clientExistsWithPhone(string $phone): bool
+    {
+        return Client::withTrashed()->where('phone', $phone)->exists();
     }
 }

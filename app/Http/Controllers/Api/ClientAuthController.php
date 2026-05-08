@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ClientResource;
 use App\Models\Client;
+use App\Models\Driver;
 use App\Models\Otp;
 use App\Models\User;
 use App\Models\Wallet;
@@ -32,6 +33,10 @@ class ClientAuthController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        if ($this->driverExistsWithPhone($request->input('phone'))) {
+            return response()->json(['message' => 'This phone is registered as a driver account.'], 409);
         }
 
         $user = Client::where('phone', $request->input('phone'))->first();
@@ -62,9 +67,13 @@ class ClientAuthController extends Controller
             return response()->json(['errors' => $validator->errors()], 422);
         }
 
+        if ($this->driverExistsWithPhone($request->input('phone'))) {
+            return response()->json(['message' => 'This phone is registered as a driver account.'], 409);
+        }
+
         $user = Client::where('phone', $request->input('phone'))->first();
         if (! $user) return response()->json(['message' => 'User not found'], 404);
-
+        
         $otp = Otp::where('user_id', $user->id)->orderBy('expires_at', 'desc')->first();
 
         if (! $otp || $otp->code !== $request->input('otp') || $otp->expires_at->isPast()) {
@@ -94,6 +103,11 @@ class ClientAuthController extends Controller
         }
 
         $data = $validator->validated();
+
+        if ($this->driverExistsWithPhone($data['phone'])) {
+            return response()->json(['message' => 'This phone is already used by a driver account.'], 409);
+        }
+
         $user = Client::create([
             'first_name' => $data['first_name'],
             'last_name' => $data['last_name'],
@@ -134,6 +148,10 @@ class ClientAuthController extends Controller
 
         if ($validator->fails()) {
             return response()->json(['errors' => $validator->errors()], 422);
+        }
+
+        if ($this->driverExistsWithPhone($request->input('phone'))) {
+            return response()->json(['message' => 'This phone is registered as a driver account.'], 409);
         }
 
         $user = Client::where('phone', $request->input('phone'))->first();
@@ -258,5 +276,10 @@ class ClientAuthController extends Controller
         }
 
         return ltrim($urlOrPath, '/');
+    }
+
+    private function driverExistsWithPhone(string $phone): bool
+    {
+        return Driver::withTrashed()->where('phone', $phone)->exists();
     }
 }
