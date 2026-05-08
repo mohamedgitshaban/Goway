@@ -27,6 +27,7 @@ class TripTypeResource extends JsonResource
             'name_en'       => $this->name_en,
             'name_ar'       => $this->name_ar,
             'image'         => $this->image,
+            'base_fare'     => $this->base_fare,
             'price_per_km'  => $this->price_per_km,
             'profit_margin' => $this->profit_margin,
             'max_distance'  => $this->max_distance,
