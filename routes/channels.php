@@ -42,9 +42,9 @@ Broadcast::channel('nearby.drivers.{geohash}', function () {
     return true;
 });
 
-Broadcast::channel('trip.locked', function () {
-    return true;
-});
+// Broadcast::channel('trip.locked', function () {
+//     return true;
+// });
 
 /*
 |--------------------------------------------------------------------------

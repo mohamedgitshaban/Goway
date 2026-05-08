@@ -97,7 +97,7 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::post('/read-all', [NotificationController::class, 'markAllAsRead']);
     });
     Route::post('/fcm-token', [NotificationController::class, 'updateFcmToken']);
-
+    Route::get('/wallet/balance', [WalletController::class, 'currentBalance']);
     Route::get('/wallet/transactions', [WalletTransactionController::class, 'driverTransactions']);
 
     // Safety access settings

@@ -16,10 +16,6 @@ class WalletController extends Controller
     {
         $user = $request->user();
 
-        if (! $user || $user->usertype !== 'client') {
-            return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
-        }
-
         $wallet = $user->wallet;
 
         if (! $wallet) {

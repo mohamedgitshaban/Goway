@@ -58,7 +58,7 @@ class AuthController extends Controller
         if (! $user) return response()->json(['message' => 'User not found'], 404);
 
         $code = (string) random_int(100000, 999999);
-        Otp::create(['user_id' => $user->id, 'code' => "12345", 'expires_at' => now()->addMinutes(10)]);
+        Otp::createOr(['user_id' => $user->id, 'code' => "12345", 'expires_at' => now()->addMinutes(10)]);
 
         // TODO: integrate SMS provider. For now return OK (do not return code in prod)
         return response()->json(['message' => 'OTP sent to email']);
