@@ -379,7 +379,14 @@ class TripRepository
                 } catch (\Exception $e) {
                     Log::error('Failed to apply cancellation billing: ' . $e->getMessage());
                 }
-
+                if ($trip->driver) {
+                    try {
+                        $trip->driver->is_idle = true;
+                        $trip->driver->save();
+                    } catch (\Exception $e) {
+                        Log::error($e->getMessage());
+                    }
+                }
                 broadcast(new \App\Events\TripCancelled($trip))->toOthers();
                 $this->notificationService->notifyTripCancelled($trip, 'client');
             }

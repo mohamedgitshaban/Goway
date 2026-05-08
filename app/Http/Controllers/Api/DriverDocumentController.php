@@ -183,8 +183,12 @@ class DriverDocumentController extends Controller
         $tripType = \App\Models\TripType::find($request->trip_type_id);
         $needsLicence = $tripType ? $tripType->need_licence : false;
 
+        // If trip_type_id != 5, minimum age is 18, otherwise 10
+        $minAge = $request->trip_type_id != 5 ? 18 : 10;
+        $ageRule = "required|integer|min:{$minAge}|max:80";
+
         $validator = Validator::make($request->all(), [
-            'age' => 'required|integer|min:10|max:80',
+            'age' => $ageRule,
             'birth_date' => 'required|date',
             'nid_front' => $this->fileOrPathRule($request, 'nid_front'),
             'nid_back'  => $this->fileOrPathRule($request, 'nid_back'),
