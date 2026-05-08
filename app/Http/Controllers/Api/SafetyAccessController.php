@@ -36,8 +36,8 @@ class SafetyAccessController extends Controller
         $user = $request->user();
 
         $data = $request->validate([
-            'safety_location_access' => 'sometimes|in:true,false,1,0',
-            'safety_voice_access'    => 'sometimes|in:true,false,1,0',
+            'safety_location_access' => 'sometimes|boolean',
+            'safety_voice_access'    => 'sometimes|boolean',
         ]);
 
         $user->update($data);
