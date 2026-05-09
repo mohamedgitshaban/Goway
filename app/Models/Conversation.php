@@ -43,12 +43,12 @@ class Conversation extends Model
 
     public function messages()
     {
-        return $this->hasMany(Message::class)->orderBy('created_at');
+        return $this->hasMany(Message::class , 'conversation_id')->orderBy('created_at');
     }
 
     public function latestMessage()
     {
-        return $this->hasOne(Message::class)->latestOfMany();
+        return $this->hasOne(Message::class, 'conversation_id')->latestOfMany();
     }
 
     // ─── Scopes ──────────────────────────────────────────────────

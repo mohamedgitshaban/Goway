@@ -22,7 +22,7 @@ class Message extends Model
 
     public function conversation()
     {
-        return $this->belongsTo(Conversation::class);
+        return $this->belongsTo(Conversation::class , 'conversation_id');
     }
 
     public function sender()
