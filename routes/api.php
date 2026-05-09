@@ -1,9 +1,12 @@
 <?php
 
 use App\Http\Controllers\Api\AdminChatController;
+use App\Http\Controllers\Api\AdminWithdrawRequestController;
+use App\Http\Controllers\Api\DriverPayoutAccountController;
 use App\Http\Controllers\Api\SafetyAccessController;
 use App\Http\Controllers\Api\TrustedContactController;
 use App\Http\Controllers\Api\AdminController;
+use App\Http\Controllers\Api\WithdrawRequestController;
 use App\Http\Controllers\Api\ChatController;
 use App\Http\Controllers\Api\ClientController;
 use App\Http\Controllers\Api\ClientTripController;
@@ -99,6 +102,21 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
     Route::post('/fcm-token', [NotificationController::class, 'updateFcmToken']);
     Route::get('/wallet/balance', [WalletController::class, 'currentBalance']);
     Route::get('/wallet/transactions', [WalletTransactionController::class, 'driverTransactions']);
+
+    // Withdrawal requests
+    Route::prefix('wallet/withdraw')->group(function () {
+        Route::get('/', [WithdrawRequestController::class, 'index']);
+        Route::post('/', [WithdrawRequestController::class, 'store']);
+        Route::get('/{id}', [WithdrawRequestController::class, 'show']);
+    });
+
+    // Saved payout accounts (encrypted bank / VF Cash details)
+    Route::prefix('payout-accounts')->group(function () {
+        Route::get('/', [DriverPayoutAccountController::class, 'index']);
+        Route::post('/', [DriverPayoutAccountController::class, 'storeOrUpdate']);
+        Route::get('/{payment_method}', [DriverPayoutAccountController::class, 'show']);
+        Route::delete('/{payment_method}', [DriverPayoutAccountController::class, 'destroy']);
+    });
 
     // Safety access settings
     Route::get('/safety-access', [SafetyAccessController::class, 'show']);
@@ -258,6 +276,15 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
         Route::get('/{id}', [WalletController::class, 'show'])->middleware('admin.permission:wallets.show');
     });
     Route::get('/wallet-transactions', [WalletTransactionController::class, 'adminTransactions'])->middleware('admin.permission:wallets.index');
+
+    // Withdrawal requests management
+    Route::prefix('withdraw-requests')->group(function () {
+        Route::get('/', [AdminWithdrawRequestController::class, 'index'])->middleware('admin.permission:wallets.index');
+        Route::get('/{id}', [AdminWithdrawRequestController::class, 'show'])->middleware('admin.permission:wallets.index');
+        Route::post('/{id}/approve', [AdminWithdrawRequestController::class, 'approve'])->middleware('admin.permission:wallets.index');
+        Route::post('/{id}/reject', [AdminWithdrawRequestController::class, 'reject'])->middleware('admin.permission:wallets.index');
+    });
+
     Route::prefix('documents')->group(function () {
         Route::get('/', [\App\Http\Controllers\Api\DriverDocumentController::class, 'index'])->middleware('admin.permission:documents.index');
         Route::post('/{id}/accept', [\App\Http\Controllers\Api\DriverDocumentController::class, 'accept'])->middleware('admin.permission:documents.accept');
