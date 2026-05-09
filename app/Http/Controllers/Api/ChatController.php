@@ -131,6 +131,10 @@ class ChatController extends Controller
     {
         $user = $request->user();
 
+        $data = $request->validate([
+            'body' => 'nullable|string|max:2000',
+        ]);
+
         if ($user->id !== $trip->client_id && $user->id !== $trip->driver_id) {
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
         }
@@ -157,7 +161,7 @@ class ChatController extends Controller
                 'user_id' => $trip->client_id, // initiator is client by convention
                 'status'  => 'open',
             ]);
-
+            
             // Notify the other party that trip chat is now available
             $otherId = $user->id === $trip->client_id ? $trip->driver_id : $trip->client_id;
             broadcast(new NewConversation($conversation, $otherId));
@@ -174,9 +178,24 @@ class ChatController extends Controller
             }
         }
 
+        $messageResource = null;
+        if ($request->filled('body')) {
+            $message = Message::create([
+                'conversation_id' => $conversation->id,
+                'sender_id'       => $user->id,
+                'body'            => $data['body'],
+            ]);
+
+            broadcast(new NewChatMessage($message))->toOthers();
+            $this->notifyParticipants($user, $conversation, $data['body']);
+
+            $messageResource = new MessageResource($message->load('sender'));
+        }
+
         return response()->json([
             'status'       => true,
             'conversation' => new ConversationResource($conversation->load('messages.sender')),
+            'message'      => $messageResource,
             'chat_channel' => "chat.{$conversation->id}",
         ]);
     }
