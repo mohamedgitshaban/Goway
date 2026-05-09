@@ -153,6 +153,7 @@ class ChatController extends Controller
         $conversation = Conversation::where('trip_id', $trip->id)
             ->where('type', Conversation::TYPE_TRIP_CHAT)
             ->first();
+        $otherId = $user->id === $trip->client_id ? $trip->driver_id : $trip->client_id;
 
         if (!$conversation) {
             $conversation = Conversation::create([
@@ -163,7 +164,6 @@ class ChatController extends Controller
             ]);
             
             // Notify the other party that trip chat is now available
-            $otherId = $user->id === $trip->client_id ? $trip->driver_id : $trip->client_id;
 
             $other = User::find($otherId);
             if ($other) {
