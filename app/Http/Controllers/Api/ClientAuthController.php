@@ -36,13 +36,13 @@ class ClientAuthController extends Controller
         }
 
         if ($this->driverExistsWithPhone($request->input('phone'))) {
-            return response()->json(['message' => 'This phone is registered as a driver account.'], 409);
+            return response()->json(['message' => __('messages.phone_registered_as_driver')], 409);
         }
 
         $user = Client::where('phone', $request->input('phone'))->first();
-        if (! $user) return response()->json(['message' => 'User not found'], 404);
+        if (! $user) return response()->json(['message' => __('messages.user_not_found')], 404);
         if($user->status === 'disactive') {
-            return response()->json(['message' => 'Your account is deactivated.'], 403);
+            return response()->json(['message' => __('messages.account_deactivated')], 403);
         }
         $this->otpService->issue($user->id, $user->phone);
 
@@ -53,7 +53,7 @@ class ClientAuthController extends Controller
         //     return response()->json(['message' => 'Unable to send OTP at the moment'], 502);
         // }
 
-        return response()->json(['message' => 'OTP sent to phone']);
+        return response()->json(['message' => __('messages.otp_sent_to_phone')]);
     }
     // POST /client/login
     public function login(Request $request)
@@ -68,16 +68,16 @@ class ClientAuthController extends Controller
         }
 
         if ($this->driverExistsWithPhone($request->input('phone'))) {
-            return response()->json(['message' => 'This phone is registered as a driver account.'], 409);
+            return response()->json(['message' => __('messages.phone_registered_as_driver')], 409);
         }
 
         $user = Client::where('phone', $request->input('phone'))->first();
-        if (! $user) return response()->json(['message' => 'User not found'], 404);
+        if (! $user) return response()->json(['message' => __('messages.user_not_found')], 404);
         
         $otp = Otp::where('user_id', $user->id)->orderBy('expires_at', 'desc')->first();
 
         if (! $otp || $otp->code !== $request->input('otp') || $otp->expires_at->isPast()) {
-            return response()->json(['message' => 'Invalid or expired OTP'], 401);
+            return response()->json(['message' => __('messages.invalid_or_expired_otp')], 401);
         }
         $otp->delete(); // delete OTP after successful login
         $token = $user->createToken('api-token')->plainTextToken;
@@ -105,7 +105,7 @@ class ClientAuthController extends Controller
         $data = $validator->validated();
 
         if ($this->driverExistsWithPhone($data['phone'])) {
-            return response()->json(['message' => 'This phone is already used by a driver account.'], 409);
+            return response()->json(['message' => __('messages.phone_used_by_driver')], 409);
         }
 
         $user = Client::create([
@@ -151,11 +151,11 @@ class ClientAuthController extends Controller
         }
 
         if ($this->driverExistsWithPhone($request->input('phone'))) {
-            return response()->json(['message' => 'This phone is registered as a driver account.'], 409);
+            return response()->json(['message' => __('messages.phone_registered_as_driver')], 409);
         }
 
         $user = Client::where('phone', $request->input('phone'))->first();
-        if (! $user) return response()->json(['message' => 'User not found'], 404);
+        if (! $user) return response()->json(['message' => __('messages.user_not_found')], 404);
         $user->status = 'active';
         if(! $user->is_phone_verified) {
             $user->is_phone_verified = true;
@@ -163,7 +163,7 @@ class ClientAuthController extends Controller
         }
         $otp = Otp::where('user_id', $user->id)->orderBy('expires_at', 'desc')->first();
         if (! $otp || $otp->code !== $request->input('otp') || $otp->expires_at->isPast()) {
-            return response()->json(['message' => 'Invalid or expired OTP'], 401);
+            return response()->json(['message' => __('messages.invalid_or_expired_otp')], 401);
         }
 
         $token = $user->createToken('api-token')->plainTextToken;
@@ -186,7 +186,7 @@ class ClientAuthController extends Controller
             $request->user()->currentAccessToken()->delete();
         }
 
-        return response()->json(['message' => 'Logged out']);
+        return response()->json(['message' => __('messages.logged_out')]);
     }
     public function profile(Request $request)
     {
@@ -234,7 +234,7 @@ class ClientAuthController extends Controller
         $client->save();
 
         return response()->json([
-            'message' => 'Profile updated successfully',
+            'message' => __('messages.profile_updated'),
             'user'    => new ClientResource($client),
         ]);
     }
@@ -260,7 +260,7 @@ class ClientAuthController extends Controller
 
         return response()->json([
             'status' => true,
-            'message' => 'Account deleted successfully',
+            'message' => __('messages.account_deleted'),
         ]);
     }
 

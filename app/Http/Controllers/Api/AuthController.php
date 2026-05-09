@@ -33,7 +33,7 @@ class AuthController extends Controller
 
         // Validate password
         if (! $admin ||! Hash::check($request->password, $admin->password)) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
+            return response()->json(['message' => __('messages.invalid_credentials')], 401);
         }
 
         // Create token
@@ -55,13 +55,13 @@ class AuthController extends Controller
         }
 
         $user = Admin::where('email', $request->input('email'))->first();
-        if (! $user) return response()->json(['message' => 'User not found'], 404);
+        if (! $user) return response()->json(['message' => __('messages.user_not_found')], 404);
 
         $code = (string) random_int(100000, 999999);
         Otp::createOr(['user_id' => $user->id, 'code' => "12345", 'expires_at' => now()->addMinutes(10)]);
 
         // TODO: integrate SMS provider. For now return OK (do not return code in prod)
-        return response()->json(['message' => 'OTP sent to email']);
+        return response()->json(['message' => __('messages.otp_sent_to_email')]);
     }
 
     // POST /admin/reset-password
@@ -79,17 +79,17 @@ class AuthController extends Controller
         }
 
         $user = Admin::where('email', $request->input('email'))->first();
-        if (! $user) return response()->json(['message' => 'User not found'], 404);
+        if (! $user) return response()->json(['message' => __('messages.user_not_found')], 404);
 
         $otp = Otp::where('user_id', $user->id)->where('code', $request->input('otp'))->orderBy('expires_at', 'desc')->first();
         if (! $otp || $otp->expires_at->isPast()) {
-            return response()->json(['message' => 'Invalid or expired OTP'], 400);
+            return response()->json(['message' => __('messages.invalid_or_expired_otp')], 400);
         }
 
         $user->password = Hash::make($request->input('password'));
         $user->save();
 
-        return response()->json(['message' => 'Password reset successful']);
+        return response()->json(['message' => __('messages.password_reset_successful')]);
     }
     public function logout(Request $request)
     {
@@ -98,7 +98,7 @@ class AuthController extends Controller
             $request->user()->currentAccessToken()->delete();
         }
 
-        return response()->json(['message' => 'Logged out']);
+        return response()->json(['message' => __('messages.logged_out')]);
     }
     public function profile(Request $request)
     {
@@ -142,7 +142,7 @@ class AuthController extends Controller
         $admin->save();
 
         return response()->json([
-            'message' => 'Profile updated successfully',
+            'message' => __('messages.profile_updated'),
             'user'    => new AdminResource($admin),
         ]);
     }

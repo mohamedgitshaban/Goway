@@ -33,13 +33,13 @@ class DriverAuthController extends Controller
         }
 
         if ($this->clientExistsWithPhone($request->input('phone'))) {
-            return response()->json(['message' => 'This phone is registered as a client account.'], 409);
+            return response()->json(['message' => __('messages.phone_registered_as_client')], 409);
         }
 
         $user = Driver::where('phone', $request->input('phone'))->first();
-        if (! $user) return response()->json(['message' => 'User not found'], 404);
+        if (! $user) return response()->json(['message' => __('messages.user_not_found')], 404);
         if ($user->status === 'disactive') {
-            return response()->json(['message' => 'Your account is deactivated.'], 403);
+            return response()->json(['message' => __('messages.account_deactivated')], 403);
         }
         $this->otpService->issue($user->id, $user->phone);
 
@@ -50,7 +50,7 @@ class DriverAuthController extends Controller
         //     return response()->json(['message' => 'Unable to send OTP at the moment'], 502);
         // }
 
-        return response()->json(['message' => 'OTP sent to phone']);
+        return response()->json(['message' => __('messages.otp_sent_to_phone')]);
     }
     // POST /Driver/login
     public function login(Request $request)
@@ -65,15 +65,15 @@ class DriverAuthController extends Controller
         }
 
         if ($this->clientExistsWithPhone($request->input('phone'))) {
-            return response()->json(['message' => 'This phone is registered as a client account.'], 409);
+            return response()->json(['message' => __('messages.phone_registered_as_client')], 409);
         }
 
         $user = Driver::where('phone', $request->input('phone'))->first();
-        if (! $user) return response()->json(['message' => 'User not found'], 404);
+        if (! $user) return response()->json(['message' => __('messages.user_not_found')], 404);
         
         $otp = Otp::where('user_id', $user->id)->orderBy('expires_at', 'desc')->first();
         if (! $otp || $otp->code !== $request->input('otp') || $otp->expires_at->isPast()) {
-            return response()->json(['message' => 'Invalid or expired OTP'], 401);
+            return response()->json(['message' => __('messages.invalid_or_expired_otp')], 401);
         }
         $user->status = 'active';
         if (! $user->is_phone_verified) {
@@ -111,7 +111,7 @@ class DriverAuthController extends Controller
         $data = $validator->validated();
 
         if ($this->clientExistsWithPhone($data['phone'])) {
-            return response()->json(['message' => 'This phone is already used by a client account.'], 409);
+            return response()->json(['message' => __('messages.phone_used_by_client')], 409);
         }
 
         if ($request->hasFile('personal_image')) {
@@ -127,7 +127,7 @@ class DriverAuthController extends Controller
             'personal_image' =>  $data['personal_image'] ?? null,
         ]);
         $this->otpService->issue($user->id, $user->phone);
-        return response()->json(['message' => 'Registration successful, OTP sent to phone']);
+        return response()->json(['message' => __('messages.registration_successful')]);
         // try {
         //     $this->otpService->issue($user->id, $user->phone);
 
@@ -149,15 +149,15 @@ class DriverAuthController extends Controller
         }
 
         if ($this->clientExistsWithPhone($request->input('phone'))) {
-            return response()->json(['message' => 'This phone is registered as a client account.'], 409);
+            return response()->json(['message' => __('messages.phone_registered_as_client')], 409);
         }
 
         $user = Driver::where('phone', $request->input('phone'))->first();
-        if (! $user) return response()->json(['message' => 'User not found'], 404);
+        if (! $user) return response()->json(['message' => __('messages.user_not_found')], 404);
         $user->status = 'pending_document';
         $otp = Otp::where('user_id', $user->id)->orderBy('expires_at', 'desc')->first();
         if (! $otp || $otp->code !== $request->input('otp') || $otp->expires_at->isPast()) {
-            return response()->json(['message' => 'Invalid or expired OTP'], 401);
+            return response()->json(['message' => __('messages.invalid_or_expired_otp')], 401);
         }
 
         $token = $user->createToken('api-token')->plainTextToken;
@@ -189,7 +189,7 @@ class DriverAuthController extends Controller
             $driver->currentAccessToken()->delete();
         }
 
-        return response()->json(['message' => 'Logged out']);
+        return response()->json(['message' => __('messages.logged_out')]);
     }
 
     public function profile(Request $request)
@@ -238,7 +238,7 @@ class DriverAuthController extends Controller
         $driver->save();
 
         return response()->json([
-            'message' => 'Profile updated successfully',
+            'message' => __('messages.profile_updated'),
             'user'    => new DriverResource($driver),
         ]);
     }
@@ -246,7 +246,7 @@ class DriverAuthController extends Controller
     {
         $driver = auth()->user();
         $driver->update(['is_online' => true]);
-        return response()->json(['message' => 'Driver is now online']);
+        return response()->json(['message' => __('messages.driver_online')]);
     }
 
     public function goOffline()
@@ -256,7 +256,7 @@ class DriverAuthController extends Controller
 
         $this->broadcastAndClearLocation($driver->id);
 
-        return response()->json(['message' => 'Driver is now offline']);
+        return response()->json(['message' => __('messages.driver_offline')]);
     }
 
 
@@ -282,7 +282,7 @@ class DriverAuthController extends Controller
 
         return response()->json([
             'status' => true,
-            'message' => 'Account deleted successfully',
+            'message' => __('messages.account_deleted'),
         ]);
     }
 
