@@ -41,7 +41,7 @@ class DriverTripController extends Controller
             $statusCode = 400;
         }
 
-        return response()->json(['status' => false, 'message' => $message , 'trip' => $trip], $statusCode);
+        return response()->json(['status' => false, 'message' => $message, 'trip' => $trip], $statusCode);
     }
 
     public function index(Request $request)
@@ -259,9 +259,13 @@ class DriverTripController extends Controller
             ]);
         }
         if (isset($data['cost'])) {
-            $extraCost = (float) $data['cost'] - (float) $trip->final_price;
+            $amountToRefund = (float) $trip->reminder > 0 ? (float) $trip->reminder : (float) $trip->final_price;
+            $extraCost = (float) $data['cost'] - (float) $amountToRefund;
             if ($extraCost > 0) {
                 $this->walletService->increment($trip->client, $extraCost, 'trip.complete_extra_cost_refund', [
+                    'trip_id' => $trip->id,
+                ]);
+                $this->walletService->decrement($driver, $extraCost, 'trip.complete_extra_cost', [
                     'trip_id' => $trip->id,
                 ]);
             }
@@ -353,7 +357,7 @@ class DriverTripController extends Controller
             ['trip_id' => $trip->id, 'driver_id' => $driver->id],
             ['proposed_price' => $data['proposed_price'], 'status' => 'pending']
         );
-        
+
         broadcast(new \App\Events\NegotiationOffer($trip, $negotiation))->toOthers();
 
         $trip->load('client');
