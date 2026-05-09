@@ -164,7 +164,6 @@ class ChatController extends Controller
             
             // Notify the other party that trip chat is now available
             $otherId = $user->id === $trip->client_id ? $trip->driver_id : $trip->client_id;
-            broadcast(new NewConversation($conversation, $otherId));
 
             $other = User::find($otherId);
             if ($other) {
@@ -185,7 +184,7 @@ class ChatController extends Controller
                 'sender_id'       => $user->id,
                 'body'            => $data['body'],
             ]);
-
+            broadcast(new NewConversation($conversation, $otherId));
             broadcast(new NewChatMessage($message))->toOthers();
             $this->notifyParticipants($user, $conversation, $data['body']);
 
