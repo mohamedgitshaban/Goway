@@ -11,6 +11,7 @@ use App\Http\Resources\TripResource;
 use App\Services\NotificationService;
 use App\Repositories\TripRepository;
 use App\Services\WalletService;
+use App\Models\WalletTransaction;
 use Illuminate\Support\Facades\Log;
 
 class DriverTripController extends Controller
@@ -162,6 +163,93 @@ class DriverTripController extends Controller
             'daily' => $daily,
             'overall_average' => $overallAverage,
             'average_of_daily' => $averageOfDaily,
+        ]);
+    }
+
+    public function earningsStats(Request $request)
+    {
+        $driver = $request->user();
+
+        if (! $driver || $driver->usertype !== 'driver') {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $validated = $request->validate([
+            'from' => 'nullable|date',
+            'to' => 'nullable|date|after_or_equal:from',
+        ]);
+
+        $completedTripsQuery = Trip::query()
+            ->where('driver_id', $driver->id)
+            ->where('status', 'completed');
+
+        if (! empty($validated['from'])) {
+            $completedTripsQuery->whereDate('completed_at', '>=', $validated['from']);
+        }
+
+        if (! empty($validated['to'])) {
+            $completedTripsQuery->whereDate('completed_at', '<=', $validated['to']);
+        }
+
+        $cashEarnings = (float) (clone $completedTripsQuery)
+            ->where('payment_method', 'cash')
+            ->sum('final_price');
+
+        $walletTripEarningsQuery = WalletTransaction::query()
+            ->where('user_id', $driver->id)
+            ->where('user_type', 'driver')
+            ->where('type', 'mint')
+            ->where('source', 'trip.assign_driver_credit');
+
+        if (! empty($validated['from'])) {
+            $walletTripEarningsQuery->whereDate('created_at', '>=', $validated['from']);
+        }
+
+        if (! empty($validated['to'])) {
+            $walletTripEarningsQuery->whereDate('created_at', '<=', $validated['to']);
+        }
+
+        $walletTripEarnings = (float) $walletTripEarningsQuery->sum('amount');
+
+        $compensationQuery = WalletTransaction::query()
+            ->where('user_id', $driver->id)
+            ->where('user_type', 'driver')
+            ->where('type', 'mint')
+            ->where('source', 'trip.client_cancel_fee_credit_driver');
+
+        if (! empty($validated['from'])) {
+            $compensationQuery->whereDate('created_at', '>=', $validated['from']);
+        }
+
+        if (! empty($validated['to'])) {
+            $compensationQuery->whereDate('created_at', '<=', $validated['to']);
+        }
+
+        $compensation = (float) $compensationQuery->sum('amount');
+
+        $tripsCount = (int) (clone $completedTripsQuery)->count();
+        $totalDistanceKm = (float) (clone $completedTripsQuery)->sum('distance_km');
+
+        $totalIncome = $cashEarnings + $walletTripEarnings + $compensation;
+        $earningsPerKilometer = $totalDistanceKm > 0 ? ($totalIncome / $totalDistanceKm) : 0.0;
+        $incomePerTrip = $tripsCount > 0 ? ($totalIncome / $tripsCount) : 0.0;
+
+        return response()->json([
+            'status' => true,
+            'period' => [
+                'from' => $validated['from'] ?? null,
+                'to' => $validated['to'] ?? null,
+            ],
+            'metrics' => [
+                'cash_paid_trips_earnings' => round($cashEarnings, 2),
+                'wallet_added_trips_earnings' => round($walletTripEarnings, 2),
+                'trips_count' => $tripsCount,
+                'earnings_per_kilometer' => round($earningsPerKilometer, 2),
+                'income_per_trip' => round($incomePerTrip, 2),
+                'compensation' => round($compensation, 2),
+                'total_income' => round($totalIncome, 2),
+                'total_distance_km' => round($totalDistanceKm, 2),
+            ],
         ]);
     }
 
