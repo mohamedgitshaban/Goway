@@ -166,7 +166,7 @@ class ClientTripController extends Controller
         ]);
 
         $distanceKm = $this->trips->calculateTripDistance($data);
-        $tripTypes = \App\Models\TripType::with('activeOffer')->get();
+        $tripTypes = \App\Models\TripType::where('status', 'active')->where('max_distance', '>=', $distanceKm)->with('activeOffer')->get();
 
         $estimates = [];
 

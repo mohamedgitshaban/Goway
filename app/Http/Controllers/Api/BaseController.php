@@ -49,6 +49,14 @@ class BaseController extends Controller
         $authUser = auth()->user();
         if ($authUser && method_exists($authUser, 'isDriver') && $authUser->isDriver()) {
             $query->where('status', 'active');
+
+            // If driver has documents but no license image, only show trip types that do not require license
+            if (method_exists($authUser, 'driverDocument')) {
+                $driverDocument = $authUser->driverDocument;
+                if ($driverDocument && $driverDocument->age < 18) {
+                    $query->where('need_licence', false);
+                }
+            }
         }
         $data = $query->paginate($limit);
 
