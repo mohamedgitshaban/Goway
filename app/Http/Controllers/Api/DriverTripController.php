@@ -10,17 +10,66 @@ use App\Models\Rating;
 use App\Http\Resources\TripResource;
 use App\Services\NotificationService;
 use App\Repositories\TripRepository;
+use App\Services\SurgePricingService;
 use App\Services\WalletService;
 use App\Models\WalletTransaction;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Redis;
 
 class DriverTripController extends Controller
 {
     public function __construct(
         protected TripRepository $trips,
         protected NotificationService $notificationService,
-        protected WalletService $walletService
+        protected WalletService $walletService,
+        protected SurgePricingService $surgePricing
     ) {}
+
+    public function surgeMap(Request $request)
+    {
+        $driver = $request->user();
+
+        if (! $driver || $driver->usertype !== 'driver') {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
+        }
+
+        $data = $request->validate([
+            'lat' => 'nullable|numeric',
+            'lng' => 'nullable|numeric',
+            'trip_type_id' => 'nullable|exists:trip_types,id',
+        ]);
+
+        $lat = $data['lat'] ?? null;
+        $lng = $data['lng'] ?? null;
+
+        if (($lat === null) xor ($lng === null)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'lat and lng must be provided together',
+            ], 422);
+        }
+
+        if ($lat === null && $lng === null) {
+            $state = Redis::hmget("driver:{$driver->id}:location", ['lat', 'lng']);
+            $lat = $state[0] ?? null;
+            $lng = $state[1] ?? null;
+        }
+
+        if ($lat === null || $lng === null) {
+            return response()->json([
+                'status' => false,
+                'message' => 'No location found for driver. Send location or pass lat/lng.',
+            ], 422);
+        }
+
+        $tripTypeId = isset($data['trip_type_id']) ? (int) $data['trip_type_id'] : null;
+        $map = $this->surgePricing->getMapMultipliers((float) $lat, (float) $lng, $tripTypeId);
+
+        return response()->json([
+            'status' => true,
+            'data' => $map,
+        ]);
+    }
 
     public function accept(Request $request, Trip $trip)
     {

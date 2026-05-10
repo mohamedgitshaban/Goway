@@ -12,6 +12,7 @@ use App\Services\WalletService;
 use App\Services\Payments\PaymentGatewayFactoryInterface;
 use App\Services\NotificationService;
 use App\Jobs\NewTripRetryJob;
+use App\Services\SurgePricingService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use App\Support\GeoHash;
@@ -24,7 +25,8 @@ class TripRepository
     public function __construct(
         protected WalletService $walletService,
         protected PaymentGatewayFactoryInterface $paymentGatewayFactory,
-        protected NotificationService $notificationService
+        protected NotificationService $notificationService,
+        protected SurgePricingService $surgePricing
     ) {}
 
     public function calculateTripDistance(array $data): float
@@ -60,6 +62,16 @@ class TripRepository
             $baseFare    = $tripType->base_fare;
             $pricePerKm  = $tripType->price_per_km;
             $original    = $baseFare + ($distanceKm * $pricePerKm);
+
+            $surge = $this->surgePricing->calculateForPoint(
+                (float) $data['origin_lat'],
+                (float) $data['origin_lng'],
+                (int) $tripType->id,
+                (float) $original
+            );
+            $surgeMultiplier = $surge['multiplier'];
+            $surgeAmount = $surge['surge_amount'];
+            $original = $surge['surged_price'];
 
             $discountAmount = 0;
             $offerId = null;
@@ -100,6 +112,8 @@ class TripRepository
             $billing = [
                 'original_price' => $original,
                 'final_price' => $finalPrice,
+                'surge_multiplier' => $surgeMultiplier,
+                'surge_amount' => $surgeAmount,
                 'profit_margin' => $profitMargin,
                 'driver_share' => round($driverShare, 2),
                 'promo_difference' => round($promoDifference, 2),
@@ -158,6 +172,7 @@ class TripRepository
             // Broadcast to nearby drivers
             // Broadcast to nearby drivers: collect members efficiently and fetch drivers in one query
             $this->TripRequestFormate($trip, 'new_trip_request');
+            $this->registerTripDemand($trip);
 
             NewTripRetryJob::dispatch($trip->id, 0)->delay(now()->addMinutes(2));
 
@@ -210,6 +225,8 @@ class TripRepository
             if ($activeTrip) {
                 return ['status' => false, 'message' => 'Driver already has an active trip'];
             }
+
+            $this->unregisterTripDemand($trip);
 
             $driver->update(['is_idle' => false]);
             $trip->update(['driver_id' => $driver->id, 'status' => 'driver_assigned', 'driver_assigned_at' => now()]);
@@ -290,6 +307,8 @@ class TripRepository
 
     public function clientCancel(Trip $trip, $client, $reason = null, $description = null): array
     {
+        $this->unregisterTripDemand($trip);
+
         // Decide if cancellation before start or after
         $beforeStart = in_array($trip->status, ['driver_assigned', 'driver_arrived']);
         if ($trip->driver_id) {
@@ -398,6 +417,8 @@ class TripRepository
 
     public function driverCancel(Trip $trip, $driver, $reason = null, $description = null): array
     {
+        $this->unregisterTripDemand($trip);
+
         $trip->update(['status' => 'cancelled_by_driver', 'cancelled_at' => now(), 'cancelled_by' => 'driver', 'cancel_reason' => $reason, 'cancel_description' => $description]);
 
         $trip->driver()->update(['is_idle' => true]);
@@ -451,5 +472,23 @@ class TripRepository
         }
 
         return ['status' => true, 'message' => 'Trip cancelled successfully', 'trip_id' => $trip->id];
+    }
+
+    private function registerTripDemand(Trip $trip): void
+    {
+        if ($trip->status !== 'searching_driver') {
+            return;
+        }
+
+        $geohash = GeoHash::encode((float) $trip->origin_lat, (float) $trip->origin_lng, 5);
+        Redis::sadd($this->surgePricing->demandKey($geohash), $trip->id);
+        Redis::sadd($this->surgePricing->tripTypeDemandKey($geohash, (int) $trip->trip_type_id), $trip->id);
+    }
+
+    private function unregisterTripDemand(Trip $trip): void
+    {
+        $geohash = GeoHash::encode((float) $trip->origin_lat, (float) $trip->origin_lng, 5);
+        Redis::srem($this->surgePricing->demandKey($geohash), $trip->id);
+        Redis::srem($this->surgePricing->tripTypeDemandKey($geohash, (int) $trip->trip_type_id), $trip->id);
     }
 }

@@ -71,6 +71,7 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
     Route::prefix('trips')->group(function () {
         Route::get('/stats/completed-average-7-days', [\App\Http\Controllers\Api\DriverTripController::class, 'completedAverageLast7Days']);
         Route::get('/stats/earnings', [\App\Http\Controllers\Api\DriverTripController::class, 'earningsStats']);
+        Route::get('/surge-map', [\App\Http\Controllers\Api\DriverTripController::class, 'surgeMap']);
         Route::post('/{trip}/accept', [\App\Http\Controllers\Api\DriverTripController::class, 'accept']);
         Route::post('/{trip}/arrived', [\App\Http\Controllers\Api\DriverTripController::class, 'arrived']);
         Route::post('/{trip}/start', [\App\Http\Controllers\Api\DriverTripController::class, 'start']);

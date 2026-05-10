@@ -14,6 +14,7 @@ use Illuminate\Http\Request;
 use App\Repositories\TripRepository;
 use App\Http\Resources\TripResource;
 use App\Services\NotificationService;
+use App\Services\SurgePricingService;
 use App\Support\GeoHash;
 use Illuminate\Support\Facades\Redis;
 
@@ -21,7 +22,8 @@ class ClientTripController extends Controller
 {
     public function __construct(
         protected TripRepository $trips,
-        protected NotificationService $notificationService
+        protected NotificationService $notificationService,
+        protected SurgePricingService $surgePricing
     ) {}
 
     public function store(Request $request)
@@ -176,6 +178,13 @@ class ClientTripController extends Controller
             $pricePerKm = $type->price_per_km;
 
             $total = $baseFare + ($distanceKm * $pricePerKm);
+            $surge = $this->surgePricing->calculateForPoint(
+                (float) $data['origin_lat'],
+                (float) $data['origin_lng'],
+                (int) $type->id,
+                (float) $total
+            );
+            $totalWithSurge = $surge['surged_price'];
 
             $estimates[] = [
                 'trip_type_id' => $type->id,
@@ -184,8 +193,11 @@ class ClientTripController extends Controller
                 'distance_km'  => $distanceKm,
                 'base_fare'    => $baseFare,
                 'price_per_km' => $pricePerKm,
-                'total'        => $total,
-                'after_offer'  => $type->activeOffer ? ($type->activeOffer->discount_type === 'percentage' ? $total * (1 - $type->activeOffer->discount_value / 100) : $total - $type->activeOffer->discount_value) : $total,
+                'total_before_surge' => $total,
+                'surge_multiplier' => $surge['multiplier'],
+                'surge_amount' => $surge['surge_amount'],
+                'total' => $totalWithSurge,
+                'after_offer'  => $type->activeOffer ? ($type->activeOffer->discount_type === 'percentage' ? $totalWithSurge * (1 - $type->activeOffer->discount_value / 100) : $totalWithSurge - $type->activeOffer->discount_value) : $totalWithSurge,
                 'offer'        => $type->activeOffer ? [
                     'id' => $type->activeOffer->id,
                     'title_ar' => $type->activeOffer->title_ar,

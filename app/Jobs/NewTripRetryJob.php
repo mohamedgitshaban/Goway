@@ -11,6 +11,7 @@ use App\Models\Trip;
 use App\Events\NewTripRequest;
 use App\Models\Driver;
 use App\Services\NotificationService;
+use App\Services\SurgePricingService;
 use Illuminate\Support\Facades\Redis;
 use App\Support\GeoHash;
 
@@ -74,6 +75,10 @@ class NewTripRetryJob implements ShouldQueue
             $trip->cancelled_by = null; // System
             $trip->cancel_reason = 'no_drivers_found';
             $trip->save();
+
+            $surgePricing = app(SurgePricingService::class);
+            Redis::srem($surgePricing->demandKey($originGeohash), $trip->id);
+            Redis::srem($surgePricing->tripTypeDemandKey($originGeohash, (int) $trip->trip_type_id), $trip->id);
 
             broadcast(new \App\Events\TripCancelledBySystem($trip, $nearbyDrivers));
         }

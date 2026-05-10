@@ -18,6 +18,8 @@ class TripResource extends JsonResource
             'base_fare' => (float) $this->base_fare,
             'price_per_km' => (float) $this->price_per_km,
             'original_price' => (float) $this->original_price,
+            'surge_multiplier' => (float) ($this->billing_breakdown['surge_multiplier'] ?? 1.0),
+            'surge_amount' => (float) ($this->billing_breakdown['surge_amount'] ?? 0.0),
             'discount_amount' => (float) $this->discount_amount,
             'final_price' => (float) $this->final_price, 
             'negotiation_enabled' => $this->negotiation_enabled,
