@@ -202,7 +202,7 @@ class ClientTripController extends Controller
                 'traffic_surge_multiplier' => (float) ($pricing['traffic_surge_multiplier'] ?? 1.0),
                 'traffic_surge_amount' => (float) ($pricing['traffic_surge_amount'] ?? 0),
                 'total' => $totalWithSurge,
-                'after_offer'  => $type->activeOffer ? ($type->activeOffer->discount_type === 'percentage' ? $totalWithSurge * (1 - $type->activeOffer->discount_value / 100) : $totalWithSurge - $type->activeOffer->discount_value) : $totalWithSurge,
+                'after_offer'  => $type->activeOffer ? max(0, $type->activeOffer->discount_type === 'percentage' ? $totalWithSurge * (1 - $type->activeOffer->discount_value / 100) : $totalWithSurge - $type->activeOffer->discount_value) : $totalWithSurge,
                 'offer'        => $type->activeOffer ? [
                     'id' => $type->activeOffer->id,
                     'title_ar' => $type->activeOffer->title_ar,
