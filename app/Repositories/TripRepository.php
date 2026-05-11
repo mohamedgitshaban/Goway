@@ -12,7 +12,9 @@ use App\Services\WalletService;
 use App\Services\Payments\PaymentGatewayFactoryInterface;
 use App\Services\NotificationService;
 use App\Jobs\NewTripRetryJob;
+use App\Services\GoogleRouteService;
 use App\Services\SurgePricingService;
+use App\Services\TrafficPricingService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Redis;
 use App\Support\GeoHash;
@@ -26,52 +28,73 @@ class TripRepository
         protected WalletService $walletService,
         protected PaymentGatewayFactoryInterface $paymentGatewayFactory,
         protected NotificationService $notificationService,
-        protected SurgePricingService $surgePricing
+        protected SurgePricingService $surgePricing,
+        protected GoogleRouteService $googleRouteService,
+        protected TrafficPricingService $trafficPricing
     ) {}
+
+    public function calculateRouteSnapshot(array $data): array
+    {
+        return $this->googleRouteService->compute($data);
+    }
 
     public function calculateTripDistance(array $data): float
     {
-        $points = [];
-        $points[] = ['lat' => $data['origin_lat'], 'lng' => $data['origin_lng']];
-        if (!empty($data['waypoints'])) {
-            foreach ($data['waypoints'] as $wp) {
-                $points[] = ['lat' => $wp['lat'], 'lng' => $wp['lng']];
-            }
-        }
-        $points[] = ['lat' => $data['destination_lat'], 'lng' => $data['destination_lng']];
+        return (float) ($this->calculateRouteSnapshot($data)['distance_km'] ?? 0.0);
+    }
 
-        $totalKm = 0;
-        for ($i = 0; $i < count($points) - 1; $i++) {
-            $totalKm += GeoHash::distanceKm(
-                $points[$i]['lat'],
-                $points[$i]['lng'],
-                $points[$i + 1]['lat'],
-                $points[$i + 1]['lng']
-            );
-        }
+    public function buildTripQuote(TripType $tripType, array $data, ?array $routeSnapshot = null): array
+    {
+        $routeSnapshot ??= $this->calculateRouteSnapshot($data);
 
-        return round($totalKm, 2);
+        $distanceKm = (float) ($routeSnapshot['distance_km'] ?? 0.0);
+        $baseFare = (float) $tripType->base_fare;
+        $pricePerKm = (float) $tripType->price_per_km;
+        $distanceAmount = round($distanceKm * $pricePerKm, 2);
+        $subtotalBeforeAdjustments = round($baseFare + $distanceAmount, 2);
+        $tollAmount = (float) ($routeSnapshot['toll_amount'] ?? 0.0);
+        $subtotalWithTolls = round($subtotalBeforeAdjustments + $tollAmount, 2);
+
+        $demandSurge = $this->surgePricing->calculateForPoint(
+            (float) $data['origin_lat'],
+            (float) $data['origin_lng'],
+            (int) $tripType->id,
+            $subtotalWithTolls
+        );
+
+        $trafficSurge = $this->trafficPricing->calculateForRoute($routeSnapshot, (float) $demandSurge['surged_price']);
+
+        return [
+            'route' => $routeSnapshot,
+            'pricing' => [
+                'distance_km' => $distanceKm,
+                'base_fare' => round($baseFare, 2),
+                'price_per_km' => round($pricePerKm, 2),
+                'distance_amount' => $distanceAmount,
+                'subtotal_before_adjustments' => $subtotalBeforeAdjustments,
+                'toll_amount' => round($tollAmount, 2),
+                'subtotal_with_tolls' => $subtotalWithTolls,
+                'demand_surge_multiplier' => (float) $demandSurge['multiplier'],
+                'demand_surge_amount' => (float) $demandSurge['surge_amount'],
+                'traffic_surge_multiplier' => (float) $trafficSurge['multiplier'],
+                'traffic_surge_amount' => (float) $trafficSurge['surge_amount'],
+                'original_price' => (float) $trafficSurge['surged_price'],
+            ],
+        ];
     }
 
     public function createTrip($user, array $data): Trip
     {
         return DB::transaction(function () use ($user, $data) {
             $tripType = TripType::findOrFail($data['trip_type_id']);
-            $distanceKm = $this->calculateTripDistance($data);
+            $quote = $this->buildTripQuote($tripType, $data);
+            $route = $quote['route'];
+            $pricing = $quote['pricing'];
 
-            $baseFare    = $tripType->base_fare;
-            $pricePerKm  = $tripType->price_per_km;
-            $original    = $baseFare + ($distanceKm * $pricePerKm);
-
-            $surge = $this->surgePricing->calculateForPoint(
-                (float) $data['origin_lat'],
-                (float) $data['origin_lng'],
-                (int) $tripType->id,
-                (float) $original
-            );
-            $surgeMultiplier = $surge['multiplier'];
-            $surgeAmount = $surge['surge_amount'];
-            $original = $surge['surged_price'];
+            $distanceKm = $pricing['distance_km'];
+            $baseFare = $pricing['base_fare'];
+            $pricePerKm = $pricing['price_per_km'];
+            $original = $pricing['original_price'];
 
             $discountAmount = 0;
             $offerId = null;
@@ -110,10 +133,27 @@ class TripRepository
             $driverCreditAmount = max(0, $driverShare + $promoDifference);
 
             $billing = [
+                'route_source' => $route['source'] ?? 'unknown',
+                'distance_meters' => (int) ($route['distance_meters'] ?? round($distanceKm * 1000)),
+                'distance_km' => $distanceKm,
+                'estimated_duration_minutes' => (float) ($route['duration_minutes'] ?? 0),
+                'estimated_duration_seconds' => (int) ($route['duration_seconds'] ?? 0),
+                'static_duration_seconds' => (int) ($route['static_duration_seconds'] ?? 0),
+                'traffic_delay_minutes' => (float) ($route['traffic_delay_minutes'] ?? 0),
+                'traffic_delay_seconds' => (int) ($route['traffic_delay_seconds'] ?? 0),
+                'has_traffic' => (bool) ($route['has_traffic'] ?? false),
+                'has_tolls' => (bool) ($route['has_tolls'] ?? false),
+                'toll_amount' => (float) ($pricing['toll_amount'] ?? 0),
+                'toll_currency' => $route['toll_currency'] ?? null,
+                'distance_amount' => (float) ($pricing['distance_amount'] ?? 0),
+                'subtotal_before_adjustments' => (float) ($pricing['subtotal_before_adjustments'] ?? 0),
+                'subtotal_with_tolls' => (float) ($pricing['subtotal_with_tolls'] ?? 0),
                 'original_price' => $original,
                 'final_price' => $finalPrice,
-                'surge_multiplier' => $surgeMultiplier,
-                'surge_amount' => $surgeAmount,
+                'surge_multiplier' => (float) ($pricing['demand_surge_multiplier'] ?? 1.0),
+                'surge_amount' => (float) ($pricing['demand_surge_amount'] ?? 0),
+                'traffic_surge_multiplier' => (float) ($pricing['traffic_surge_multiplier'] ?? 1.0),
+                'traffic_surge_amount' => (float) ($pricing['traffic_surge_amount'] ?? 0),
                 'profit_margin' => $profitMargin,
                 'driver_share' => round($driverShare, 2),
                 'promo_difference' => round($promoDifference, 2),
@@ -128,6 +168,7 @@ class TripRepository
                 'status'         => 'searching_driver',
                 'payment_method' => $data['payment_method'],
                 'distance_km'    => $distanceKm,
+                'estimated_duration_minutes' => $route['duration_minutes'] ?? 0,
                 'base_fare'      => $baseFare,
                 'price_per_km'   => $pricePerKm,
                 'original_price' => $original,

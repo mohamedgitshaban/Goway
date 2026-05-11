@@ -53,6 +53,10 @@ class ClientTripController extends Controller
             'status'  => true,
             'message' => 'Trip created successfully',
             'trip_id' => $trip->id,
+            'distance_km' => (float) $trip->distance_km,
+            'estimated_duration_minutes' => (float) $trip->estimated_duration_minutes,
+            'toll_amount' => (float) ($trip->billing_breakdown['toll_amount'] ?? 0),
+            'traffic_delay_minutes' => (float) ($trip->billing_breakdown['traffic_delay_minutes'] ?? 0),
             'trip_channel' => "trip.{$trip->id}",
         ]);
     }
@@ -167,35 +171,36 @@ class ClientTripController extends Controller
             'waypoints.*.lng'   => 'required_with:waypoints|numeric',
         ]);
 
-        $distanceKm = $this->trips->calculateTripDistance($data);
+        $routeSnapshot = $this->trips->calculateRouteSnapshot($data);
+        $distanceKm = (float) ($routeSnapshot['distance_km'] ?? 0.0);
         $tripTypes = \App\Models\TripType::where('status', 'active')->where('max_distance', '>=', $distanceKm)->with('activeOffer')->get();
 
         $estimates = [];
 
         foreach ($tripTypes as $type) {
-
-            $baseFare   = $type->base_fare;
-            $pricePerKm = $type->price_per_km;
-
-            $total = $baseFare + ($distanceKm * $pricePerKm);
-            $surge = $this->surgePricing->calculateForPoint(
-                (float) $data['origin_lat'],
-                (float) $data['origin_lng'],
-                (int) $type->id,
-                (float) $total
-            );
-            $totalWithSurge = $surge['surged_price'];
+            $quote = $this->trips->buildTripQuote($type, $data, $routeSnapshot);
+            $pricing = $quote['pricing'];
+            $totalWithSurge = (float) $pricing['original_price'];
 
             $estimates[] = [
                 'trip_type_id' => $type->id,
                 'name'         => $type->name_en,
                 'image'        => $type->image ?? null,
                 'distance_km'  => $distanceKm,
-                'base_fare'    => $baseFare,
-                'price_per_km' => $pricePerKm,
-                'total_before_surge' => $total,
-                'surge_multiplier' => $surge['multiplier'],
-                'surge_amount' => $surge['surge_amount'],
+                'estimated_duration_minutes' => (float) ($routeSnapshot['duration_minutes'] ?? 0),
+                'traffic_delay_minutes' => (float) ($routeSnapshot['traffic_delay_minutes'] ?? 0),
+                'has_traffic' => (bool) ($routeSnapshot['has_traffic'] ?? false),
+                'has_tolls' => (bool) ($routeSnapshot['has_tolls'] ?? false),
+                'toll_amount' => (float) ($pricing['toll_amount'] ?? 0),
+                'route_source' => $routeSnapshot['source'] ?? 'unknown',
+                'base_fare'    => (float) $pricing['base_fare'],
+                'price_per_km' => (float) $pricing['price_per_km'],
+                'distance_amount' => (float) ($pricing['distance_amount'] ?? 0),
+                'total_before_surge' => (float) ($pricing['subtotal_with_tolls'] ?? 0),
+                'surge_multiplier' => (float) ($pricing['demand_surge_multiplier'] ?? 1.0),
+                'surge_amount' => (float) ($pricing['demand_surge_amount'] ?? 0),
+                'traffic_surge_multiplier' => (float) ($pricing['traffic_surge_multiplier'] ?? 1.0),
+                'traffic_surge_amount' => (float) ($pricing['traffic_surge_amount'] ?? 0),
                 'total' => $totalWithSurge,
                 'after_offer'  => $type->activeOffer ? ($type->activeOffer->discount_type === 'percentage' ? $totalWithSurge * (1 - $type->activeOffer->discount_value / 100) : $totalWithSurge - $type->activeOffer->discount_value) : $totalWithSurge,
                 'offer'        => $type->activeOffer ? [

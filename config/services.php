@@ -49,4 +49,8 @@ return [
         'callback_url' => env('BAYMOB_CALLBACK_URL'),
     ],
 
+    'google_maps' => [
+        'api_key' => env('GOOGLE_MAPS_API_KEY'),
+    ],
+
 ];
