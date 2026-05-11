@@ -202,7 +202,7 @@ class DriverDocumentController extends Controller
             'vehicle_model_id' => 'required|integer|exists:vehicle_models,id',
             'color' => 'required|string',
             'year' => 'required|integer|min:1900|max:' . date('Y'),
-            'plate_number' => $needsLicence ? 'required|string' : 'nullable',
+            'plate_number' => $needsLicence ? 'required|string|unique:vehicles,plate_number' : 'nullable',
             'vehicle_license_image' => $this->fileOrPathRule($request, 'vehicle_license_image'),
             'car_front_image' => $this->fileOrPathRule($request, 'car_front_image'),
             'car_back_image' => $this->fileOrPathRule($request, 'car_back_image'),

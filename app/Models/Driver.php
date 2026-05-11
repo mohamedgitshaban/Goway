@@ -45,6 +45,6 @@ class Driver extends User
 
     public function activeVehicle()
     {
-        return $this->hasOne(Vehicle::class, 'driver_id')->where('isactive', 1);
+        return $this->hasOne(Vehicle::class, 'driver_id')->where('isactive', 1)->where('status','approved');
     }
 }
