@@ -16,6 +16,7 @@ class ConversationResource extends JsonResource
             'trip_id'        => $this->trip_id,
             'user_id'        => $this->user_id,
             'user_name'      => $this->user?->name,
+            'user_profile_image' => $this->user?->personal_image,
             'admin_id'       => $this->admin_id,
             'admin_name'     => $this->admin?->name,
             'closed_at'      => $this->closed_at?->toISOString(),
