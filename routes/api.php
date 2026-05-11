@@ -70,6 +70,7 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
 
     Route::prefix('trips')->group(function () {
         Route::get('/stats/completed-average-7-days', [\App\Http\Controllers\Api\DriverTripController::class, 'completedAverageLast7Days']);
+        Route::get('/stats/daily-income', [\App\Http\Controllers\Api\DriverTripController::class, 'dailyIncome']);
         Route::post('/stats/earnings', [\App\Http\Controllers\Api\DriverTripController::class, 'earningsStats']);
         Route::get('/surge-map', [\App\Http\Controllers\Api\DriverTripController::class, 'surgeMap']);
         Route::post('/{trip}/accept', [\App\Http\Controllers\Api\DriverTripController::class, 'accept']);

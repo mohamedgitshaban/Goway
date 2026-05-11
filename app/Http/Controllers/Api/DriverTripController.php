@@ -302,6 +302,27 @@ class DriverTripController extends Controller
         ]);
     }
 
+    public function dailyIncome(Request $request)
+    {
+        $driver = $request->user();
+
+        if (! $driver || $driver->usertype !== 'driver') {
+            return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
+        }
+        $today = today();
+        // Compensation for cancellations from today
+        $income = (float) WalletTransaction::query()
+            ->where('user_id', $driver->id)
+            ->where('user_type', 'driver')
+            ->where('type', 'mint')
+            ->whereDate('created_at', $today)
+            ->sum('amount');
+        return response()->json([
+            'status' => true,
+            'date' => $income,
+        ]);
+    }
+
     public function arrived(Request $request, Trip $trip)
     {
         $driver = $request->user();
