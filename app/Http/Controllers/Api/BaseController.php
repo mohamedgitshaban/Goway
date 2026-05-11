@@ -82,6 +82,7 @@ class BaseController extends Controller
                 ? 'required|file|image|max:5120'
                 : 'required|string|max:2048',
             'price_per_km' => 'required|numeric',
+            'base_fare' => 'required|numeric',
             'max_distance' => 'required|numeric',
             'profit_margin' => 'required|numeric',
             'need_licence' => 'required|in:true,false,1,0',
@@ -122,6 +123,7 @@ class BaseController extends Controller
                 : 'sometimes|nullable|string|max:2048',
             'max_distance' => 'sometimes|required|numeric',
             'price_per_km' => 'sometimes|required|numeric',
+            'base_fare' => 'nullable|numeric',
             'profit_margin' => 'sometimes|required|numeric',
             // validate as boolean - accepts true/false, 1/0, "true"/"false"
             'need_licence' => 'sometimes|in:true,false,1,0',
