@@ -1,0 +1,73 @@
+<?php
+
+namespace App\Traits;
+
+use App\Events\NewTripRequest;
+use App\Models\Driver;
+use App\Models\Trip;
+use App\Support\GeoHash;
+use Illuminate\Support\Facades\Redis;
+
+trait TripTrait
+{
+    public function billing($route, $pricing, $discountData, $profitMargin, $driverShare, $driverCreditAmount) {
+        return [                
+                'route_source' => $route['source'] ?? 'unknown',
+                'distance_meters' => (int) ($route['distance_meters'] ?? round($pricing['distance_km'] * 1000)),
+                'distance_km' => $pricing['distance_km'],
+                'estimated_duration_minutes' => (float) ($route['duration_minutes'] ?? 0),
+                'estimated_duration_seconds' => (int) ($route['duration_seconds'] ?? 0),
+                'static_duration_seconds' => (int) ($route['static_duration_seconds'] ?? 0),
+                'traffic_delay_minutes' => (float) ($route['traffic_delay_minutes'] ?? 0),
+                'traffic_delay_seconds' => (int) ($route['traffic_delay_seconds'] ?? 0),
+                'has_traffic' => (bool) ($route['has_traffic'] ?? false),
+                'has_tolls' => (bool) ($route['has_tolls'] ?? false),
+                'toll_amount' => (float) ($pricing['toll_amount'] ?? 0),
+                'toll_currency' => $route['toll_currency'] ?? null,
+                'distance_amount' => (float) ($pricing['distance_amount'] ?? 0),
+                'subtotal_before_adjustments' => (float) ($pricing['subtotal_before_adjustments'] ?? 0),
+                'subtotal_with_tolls' => (float) ($pricing['subtotal_with_tolls'] ?? 0),
+                'original_price' => $pricing['original_price'],
+                'final_price' => max(0, $pricing['original_price'] - $discountData['discount_amount']),
+                'surge_multiplier' => (float) ($pricing['demand_surge_multiplier'] ?? 1.0),
+                'surge_amount' => (float) ($pricing['demand_surge_amount'] ?? 0),
+                'traffic_surge_multiplier' => (float) ($pricing['traffic_surge_multiplier'] ?? 1.0),
+                'traffic_surge_amount' => (float) ($pricing['traffic_surge_amount'] ?? 0),
+                'profit_margin' => $profitMargin,
+                'driver_share' => round($driverShare, 2),
+                'driver_credit_amount' => round($driverCreditAmount, 2),
+                'offer_id' => $discountData['offer_id'],
+                'coupon_id' => $discountData['coupon_id']
+                ];
+    }
+    public function TripRequestFormate(Trip $trip, $type = 'new_trip_request')
+    {
+        $originGeohash = GeoHash::encode($trip->origin_lat, $trip->origin_lng, 5);
+        $cells = array_merge([$originGeohash], GeoHash::neighbors($originGeohash));
+        $nearbyDrivers = [];
+        foreach ($cells as $cell) {
+            $members = Redis::smembers("geohash:drivers:{$cell}");
+            if (! empty($members)) {
+                foreach ($members as $m) {
+                    $nearbyDrivers[] = $m;
+                }
+            }
+        }
+        $nearbyDrivers = array_values(array_unique($nearbyDrivers));
+
+        if (! empty($nearbyDrivers)) {
+            $drivers = Driver::whereIn('id', $nearbyDrivers)->where('is_online', 1)->where('is_idle', 1)->whereHas('activeVehicle', function ($query) use ($trip) {
+                $query->where('trip_type_id', $trip->trip_type_id);
+            })->get();
+            foreach ($drivers as $driver) {
+                broadcast(new NewTripRequest($trip, $driver->id, $type));
+                if ($type === 'new_trip_request') {
+                    $this->notificationService->notifyNewTripRequest($trip, $driver);
+                }
+            }
+        }
+    }
+    public function checkBalance($user) {
+        return $this->walletService->getBalance($user);
+    }
+}

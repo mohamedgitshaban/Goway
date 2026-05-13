@@ -75,10 +75,6 @@ class DriverTripController extends Controller
     {
         $driver = $request->user();
 
-        if ($driver->usertype !== 'driver') {
-            return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
-        }
-
         $result = $this->trips->assignDriver($trip, $driver);
 
         if (!empty($result['status']) && $result['status'] === true) {
@@ -306,17 +302,20 @@ class DriverTripController extends Controller
     {
         $driver = $request->user();
 
-        if (! $driver || $driver->usertype !== 'driver') {
-            return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
-        }
+        
         $today = today();
         // Compensation for cancellations from today
-        $income = (float) WalletTransaction::query()
-            ->where('user_id', $driver->id)
-            ->where('user_type', 'driver')
-            ->where('type', 'mint')
-            ->whereDate('created_at', $today)
-            ->sum('amount');
+        $income = (float) Trip::query()
+            ->where('driver_id', $driver->id)
+            ->where(function ($q) use ($today) {
+                $q->where(function ($qc) use ($today) {
+                    $qc->where('status', 'completed')->whereDate('completed_at', $today);
+                })->orWhere(function ($qc) use ($today) {
+                    $qc->where('status', 'cancelled_by_client')->whereDate('cancelled_at', $today);
+                });
+            })
+
+            ->sum('driver_credit_amount');
         return response()->json([
             'status' => true,
             'date' => $income,
@@ -393,6 +392,42 @@ class DriverTripController extends Controller
 
     public function complete(Request $request, Trip $trip)
     {
+        $driver = $request->user();
+
+        if ($trip->driver_id !== $driver->id) {
+            return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
+        }
+
+        if ($trip->status !== 'in_progress') {
+            return response()->json(['status' => false, 'message' => 'Trip cannot be completed at this stage'], 400);
+        }
+        $startedAt = $trip->started_at;
+        $completedAt = now();
+        $durationMinutes = $startedAt ? $startedAt->diffInMinutes($completedAt) : 0;
+
+        $trip->update([
+            'status' => 'completed',
+            'completed_at' => $completedAt,
+            'duration_minutes' => $durationMinutes,
+        ]);
+
+        $trip->driver()->update(['is_idle' => true]);
+
+        broadcast(new \App\Events\TripCompleted($trip))->toOthers();
+
+        $trip->load(['client', 'driver']);
+        $this->notificationService->notifyTripCompleted($trip);
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Trip completed successfully',
+            'trip' => $trip,
+            'duration_minutes' => $durationMinutes,
+            'trip_channel' => "trip.{$trip->id}",
+        ]);
+    }
+    public function paid(Request $request, Trip $trip)
+    {
         $data = $request->validate([
             'cost' => 'nullable|numeric|min:0',
         ]);
@@ -428,15 +463,9 @@ class DriverTripController extends Controller
                 ]);
             }
         }
-        $startedAt = $trip->started_at;
-        $completedAt = now();
-        $durationMinutes = $startedAt ? $startedAt->diffInMinutes($completedAt) : 0;
-
         $trip->update([
             'paid_at' => now(),
-            'status' => 'completed',
-            'completed_at' => $completedAt,
-            'duration_minutes' => $durationMinutes,
+            'status' => 'paid',
         ]);
 
         $trip->driver()->update(['is_idle' => true]);
@@ -449,7 +478,7 @@ class DriverTripController extends Controller
         try {
             $clientId = $trip->client_id;
             if ($clientId) {
-                $completedCount = Trip::where('client_id', $clientId)->where('status', 'completed')->count();
+                $completedCount = Trip::where('client_id', $clientId)->where('status', 'paid')->count();
                 if ($completedCount === 5) {
                     $client = $trip->client;
                     if ($client && $client->wallet) {
@@ -466,13 +495,11 @@ class DriverTripController extends Controller
 
         return response()->json([
             'status' => true,
-            'message' => 'Trip completed successfully',
+            'message' => 'Trip paid successfully',
             'trip' => $trip,
-            'duration_minutes' => $durationMinutes,
             'trip_channel' => "trip.{$trip->id}",
         ]);
     }
-
     public function cancel(Request $request, Trip $trip)
     {
         $driver = $request->user();
@@ -481,7 +508,7 @@ class DriverTripController extends Controller
             return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
         }
 
-        if (! in_array($trip->status, ['searching_driver', 'driver_assigned', 'driver_arrived'])) {
+        if (! in_array($trip->status, ['driver_assigned', 'driver_arrived' , 'in_progress'])) {
             return response()->json(['status' => false, 'message' => 'Trip cannot be cancelled at this stage'], 400);
         }
 

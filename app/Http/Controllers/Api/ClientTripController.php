@@ -330,35 +330,6 @@ class ClientTripController extends Controller
             'negotiation' => $negotiation,
         ]);
     }
-    public function counterNegotiation(Request $request, Trip $trip)
-    {
-        $client = $request->user();
-
-        $data = $request->validate([
-            'counter_price' => 'required|numeric|min:1',
-        ]);
-
-        if ($trip->client_id !== $client->id) {
-            return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
-        }
-
-        $trip->update([
-            'negotiation_status' => 'counter',
-            'negotiation_price' => $data['counter_price'],
-        ]);
-
-        broadcast(new \App\Events\NegotiationCounter($trip))->toOthers();
-
-        // Push notification to driver
-        $trip->load('driver');
-        $this->notificationService->notifyNegotiationCounter($trip);
-
-        return response()->json([
-            'status' => true,
-            'message' => 'Counter offer sent',
-            'counter_price' => $data['counter_price'],
-        ]);
-    }
     public function rateDriver(Request $request, Trip $trip)
     {
         $client = $request->user();

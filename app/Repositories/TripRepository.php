@@ -21,9 +21,11 @@ use App\Support\GeoHash;
 use App\Events\NewTripRequest;
 use App\Events\TripAccepted;
 use Illuminate\Support\Facades\Log;
+use App\Traits\TripTrait;
 
 class TripRepository
 {
+    use TripTrait;
     public function __construct(
         protected WalletService $walletService,
         protected PaymentGatewayFactoryInterface $paymentGatewayFactory,
@@ -42,7 +44,6 @@ class TripRepository
     {
         return (float) ($this->calculateRouteSnapshot($data)['distance_km'] ?? 0.0);
     }
-
     public function buildTripQuote(TripType $tripType, array $data, ?array $routeSnapshot = null): array
     {
         $routeSnapshot ??= $this->calculateRouteSnapshot($data);
@@ -82,102 +83,68 @@ class TripRepository
             ],
         ];
     }
+    public function getDiscount(TripType $tripType, $user, array $data, float $original): array
+    {
+        $discountAmount = 0;
+        $offer = Offer::active()->where('trip_type_id', $tripType->id)->first();
+        if ($offer) {
+            if ($offer->discount_type === 'percentage') {
+                $offerDiscount = ($original * ($offer->discount_value / 100)) > $offer->max_discount ? $offer->max_discount : ($original * ($offer->discount_value / 100));
+            } else {
+                $offerDiscount = $offer->discount_value;
+            }
+            $discountAmount += $offerDiscount;
+            $offerId = $offer->id;
+        }
 
+        if (!empty($data['coupon_code'])) {
+            $coupon = Coupon::active()->where('code', $data['coupon_code'])->first();
+            if ($coupon && $coupon->isValidFor($user, $tripType)) {
+                if ($coupon->discount_type === 'percentage') {
+                    $couponDiscount = ($original * ($coupon->discount_value / 100)) > $coupon->max_discount ? $coupon->max_discount : ($original * ($coupon->discount_value / 100));
+                } else {
+                    $couponDiscount = $coupon->discount_value;
+                }
+                $discountAmount += $couponDiscount;
+                $couponId = $coupon->id;
+            }
+        }
+        return ['discount_amount' => round($discountAmount, 2), 'offer_id' => $offerId ?? null, 'coupon_id' => $couponId ?? null];
+    }
     public function createTrip($user, array $data): Trip
     {
         return DB::transaction(function () use ($user, $data) {
+
             $tripType = TripType::findOrFail($data['trip_type_id']);
+
             $quote = $this->buildTripQuote($tripType, $data);
             $route = $quote['route'];
             $pricing = $quote['pricing'];
-
-            $distanceKm = $pricing['distance_km'];
-            $baseFare = $pricing['base_fare'];
-            $pricePerKm = $pricing['price_per_km'];
-            $original = $pricing['original_price'];
-
-            $discountAmount = 0;
-            $offerId = null;
-            $couponId = null;
-
-            $offer = Offer::active()->where('trip_type_id', $tripType->id)->first();
-            if ($offer) {
-                if ($offer->discount_type === 'percentage') {
-                    $offerDiscount = ($original * ($offer->discount_value / 100)) > $offer->max_discount ? $offer->max_discount : ($original * ($offer->discount_value / 100));
-                } else {
-                    $offerDiscount = $offer->discount_value;
-                }
-                $discountAmount += $offerDiscount;
-                $offerId = $offer->id;
-            }
-
-            if (!empty($data['coupon_code'])) {
-                $coupon = Coupon::active()->where('code', $data['coupon_code'])->first();
-                if ($coupon && $coupon->isValidFor($user, $tripType)) {
-                    if ($coupon->discount_type === 'percentage') {
-                        $couponDiscount = ($original * ($coupon->discount_value / 100)) > $coupon->max_discount ? $coupon->max_discount : ($original * ($coupon->discount_value / 100));
-                    } else {
-                        $couponDiscount = $coupon->discount_value;
-                    }
-                    $discountAmount += $couponDiscount;
-                    $couponId = $coupon->id;
-                }
-            }
-
-            $finalPrice = max(0, $original - $discountAmount);
-
-            // compute billing before creating trip to avoid an extra update
+            // get the total discount of trip based on offers and coupons, then compute final price
+            $discountData = $this->getDiscount($tripType, $user, $data , $pricing['original_price']);
             $profitMargin = $tripType->profit_margin ?? 0;
-            $driverShare = $finalPrice - ($finalPrice * ($profitMargin / 100));
-            $promoDifference = max(0, $original - $finalPrice);
-            $driverCreditAmount = max(0, $driverShare + $promoDifference);
-
-            $billing = [
-                'route_source' => $route['source'] ?? 'unknown',
-                'distance_meters' => (int) ($route['distance_meters'] ?? round($distanceKm * 1000)),
-                'distance_km' => $distanceKm,
-                'estimated_duration_minutes' => (float) ($route['duration_minutes'] ?? 0),
-                'estimated_duration_seconds' => (int) ($route['duration_seconds'] ?? 0),
-                'static_duration_seconds' => (int) ($route['static_duration_seconds'] ?? 0),
-                'traffic_delay_minutes' => (float) ($route['traffic_delay_minutes'] ?? 0),
-                'traffic_delay_seconds' => (int) ($route['traffic_delay_seconds'] ?? 0),
-                'has_traffic' => (bool) ($route['has_traffic'] ?? false),
-                'has_tolls' => (bool) ($route['has_tolls'] ?? false),
-                'toll_amount' => (float) ($pricing['toll_amount'] ?? 0),
-                'toll_currency' => $route['toll_currency'] ?? null,
-                'distance_amount' => (float) ($pricing['distance_amount'] ?? 0),
-                'subtotal_before_adjustments' => (float) ($pricing['subtotal_before_adjustments'] ?? 0),
-                'subtotal_with_tolls' => (float) ($pricing['subtotal_with_tolls'] ?? 0),
-                'original_price' => $original,
-                'final_price' => $finalPrice,
-                'surge_multiplier' => (float) ($pricing['demand_surge_multiplier'] ?? 1.0),
-                'surge_amount' => (float) ($pricing['demand_surge_amount'] ?? 0),
-                'traffic_surge_multiplier' => (float) ($pricing['traffic_surge_multiplier'] ?? 1.0),
-                'traffic_surge_amount' => (float) ($pricing['traffic_surge_amount'] ?? 0),
-                'profit_margin' => $profitMargin,
-                'driver_share' => round($driverShare, 2),
-                'promo_difference' => round($promoDifference, 2),
-                'driver_credit_amount' => round($driverCreditAmount, 2),
-                'offer_id' => $offerId,
-                'coupon_id' => $couponId,
-            ];
+            $driverShare = $pricing['original_price'] - ($pricing['original_price'] * ($profitMargin / 100));
+            $driverCreditAmount = max(0, $pricing['original_price'] - $driverShare);
 
             $trip = Trip::create([
                 'client_id'      => $user->id,
                 'trip_type_id'   => $tripType->id,
                 'status'         => 'searching_driver',
                 'payment_method' => $data['payment_method'],
-                'distance_km'    => $distanceKm,
+                'distance_km'    => $pricing['distance_km'],
                 'estimated_duration_minutes' => $route['duration_minutes'] ?? 0,
-                'base_fare'      => $baseFare,
-                'price_per_km'   => $pricePerKm,
-                'original_price' => $original,
-                'discount_amount' => $discountAmount,
-                'final_price'    => $finalPrice,
-                'offer_id'       => $offerId,
-                'coupon_id'      => $couponId,
-                'billing_breakdown' => $billing,
-                'driver_credit_amount' => $driverCreditAmount,
+                'base_fare'      => $pricing['base_fare'],
+                'price_per_km'   => $pricing['price_per_km'],
+
+                'original_price' => $pricing['original_price'],
+                'discount_amount' => $discountData['discount_amount'],
+                'final_price'    => max(0, $pricing['original_price'] - $discountData['discount_amount']),
+                'offer_id'       => $discountData['offer_id'],
+                'coupon_id'      => $discountData['coupon_id'],
+                'billing_breakdown' => $this->billing($route, $pricing, $discountData, $profitMargin, $driverShare, $driverCreditAmount),
+                'driver_credit_amount' => $driverCreditAmount, //driver income
+                'driver_credit_deposed_amount' => 0, //driver deposited amount
+                'driver_share' => $driverShare, //driver share from trip price after discount and surge
                 'is_paid' => false,
                 'negotiation_enabled' => $data['negotiation_enabled'] ?? false,
                 'origin_lat'     => $data['origin_lat'],
@@ -186,7 +153,7 @@ class TripRepository
                 'destination_lat' => $data['destination_lat'],
                 'destination_lng' => $data['destination_lng'],
                 'destination_address' => $data['destination_address'] ?? null,
-                'reminder' => $data['reminder'] ?? 0,
+                'reminder' => 0,
             ]);
 
             // Bulk insert waypoints to reduce DB calls
@@ -220,33 +187,7 @@ class TripRepository
             return $trip;
         });
     }
-    public function TripRequestFormate(Trip $trip, $type = 'new_trip_request')
-    {
-        $originGeohash = GeoHash::encode($trip->origin_lat, $trip->origin_lng, 5);
-        $cells = array_merge([$originGeohash], GeoHash::neighbors($originGeohash));
-        $nearbyDrivers = [];
-        foreach ($cells as $cell) {
-            $members = Redis::smembers("geohash:drivers:{$cell}");
-            if (! empty($members)) {
-                foreach ($members as $m) {
-                    $nearbyDrivers[] = $m;
-                }
-            }
-        }
-        $nearbyDrivers = array_values(array_unique($nearbyDrivers));
 
-        if (! empty($nearbyDrivers)) {
-            $drivers = Driver::whereIn('id', $nearbyDrivers)->where('is_online', 1)->where('is_idle', 1)->whereHas('activeVehicle', function ($query) use ($trip) {
-                $query->where('trip_type_id', $trip->trip_type_id);
-            })->get();
-            foreach ($drivers as $driver) {
-                broadcast(new NewTripRequest($trip, $driver->id, $type));
-                if ($type === 'new_trip_request') {
-                    $this->notificationService->notifyNewTripRequest($trip, $driver);
-                }
-            }
-        }
-    }
     public function assignDriver(Trip $trip, $driver): array
     {
         return DB::transaction(function () use ($trip, $driver) {
@@ -255,16 +196,8 @@ class TripRepository
                 return ['status' => false, 'message' => 'Trip already accepted by another driver'];
             }
 
-            if ($driver->is_online !== 1) {
-                return ['status' => false, 'message' => 'Driver is offline'];
-            }
-
-            $activeTrip = Trip::where('driver_id', $driver->id)
-                ->whereIn('status', ['driver_assigned', 'driver_arrived', 'in_progress'])
-                ->first();
-
-            if ($activeTrip) {
-                return ['status' => false, 'message' => 'Driver already has an active trip'];
+            if ($driver->is_online !== 1 || $driver->is_idle !== 1) {
+                return ['status' => false, 'message' => 'Driver is offline or not idle'];
             }
 
             $this->unregisterTripDemand($trip);
@@ -274,10 +207,7 @@ class TripRepository
 
             // Try to collect payment at accept
             $billing = $trip->billing_breakdown ?? [];
-            $profitMargin = $trip->tripType?->profit_margin ?? 0;
-            $driverShare = $trip->final_price - ($trip->final_price * ($profitMargin / 100));
-            $promoDifference = max(0, $trip->original_price - $trip->final_price);
-            $driverCreditAmount = max(0, $driverShare + $promoDifference);
+
 
             if (! $trip->is_paid) {
                 if ($trip->payment_method === 'wallet') {
@@ -285,8 +215,7 @@ class TripRepository
 
                     if ($available >= $trip->final_price) {
                         $this->walletService->decrement($trip->client, $trip->final_price);
-                        $billing = array_merge($billing, ['wallet_charged' => $trip->final_price]);
-                        $trip->update(['is_paid' => true, 'paid_at' => now(), 'driver_credit_amount' => $driverCreditAmount, 'billing_breakdown' => $billing]);
+                        $trip->update(['is_paid' => true, 'paid_at' => now(),  'billing_breakdown' => $billing]);
                     } elseif ($available > 0) {
                         $this->walletService->decrement($trip->client, $available);
                         $remaining = $trip->final_price - $available;
@@ -460,7 +389,6 @@ class TripRepository
     {
         $this->unregisterTripDemand($trip);
 
-        $trip->update(['status' => 'cancelled_by_driver', 'cancelled_at' => now(), 'cancelled_by' => 'driver', 'cancel_reason' => $reason, 'cancel_description' => $description]);
 
         $trip->driver()->update(['is_idle' => true]);
 

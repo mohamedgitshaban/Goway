@@ -77,6 +77,7 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::post('/{trip}/arrived', [\App\Http\Controllers\Api\DriverTripController::class, 'arrived']);
         Route::post('/{trip}/start', [\App\Http\Controllers\Api\DriverTripController::class, 'start']);
         Route::post('/{trip}/complete', [\App\Http\Controllers\Api\DriverTripController::class, 'complete']);
+        Route::post('/{trip}/paid', [\App\Http\Controllers\Api\DriverTripController::class, 'paid']);
         Route::post('/{trip}/cancel', [DriverTripController::class, 'cancel']);
         Route::post('/{trip}/negotiate', [DriverTripController::class, 'negotiate']);
         Route::post('/{trip}/rate', [DriverTripController::class, 'rateClient']);

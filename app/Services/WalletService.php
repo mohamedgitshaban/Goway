@@ -27,15 +27,15 @@ class WalletService
         }
 
         $wallet = $this->getOrCreateWallet($user);
-        if ($wallet->balance < $amount) return false;
+        // if ($wallet->balance < $amount) return false;
 
         return DB::transaction(function () use ($wallet, $user, $amount, $source, $meta) {
             $wallet->refresh();
             $before = (float) $wallet->balance;
 
-            if ($before < $amount) {
-                return false;
-            }
+            // if ($before < $amount) {
+            //     return false;
+            // }
 
             $after = round($before - $amount, 2);
             $wallet->update(['balance' => $after]);

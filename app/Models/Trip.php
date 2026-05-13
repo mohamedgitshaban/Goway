@@ -22,6 +22,7 @@ class Trip extends Model
         'original_price',
         'discount_amount',
         'final_price',
+        'driver_share',
         'offer_id',
         'coupon_id',
         'negotiation_enabled',
