@@ -274,8 +274,7 @@ class ClientTripController extends Controller
         \App\Models\TripNegotiation::where('trip_id', $trip->id)
             ->where('id', '!=', $negotiation->id)
             ->update(['status' => 'rejected']);
-        $driverShare = $negotiation->driver_proposed_price - ($negotiation->driver_proposed_price * ($trip->tripType->profit_margin / 100));
-        $driverCreditAmount = max(0, $negotiation->driver_proposed_price - $driverShare);
+        ['driver_share' => $driverShare, 'driver_credit_amount' => $driverCreditAmount] = $this->profitCalc($negotiation->driver_proposed_price, $trip->tripType->profit_margin);
         $trip->update([
             'negotiated_price_before' => $trip->final_price,
             'negotiated_price_after' => $negotiation->proposed_price,

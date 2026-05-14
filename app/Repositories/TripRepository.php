@@ -123,8 +123,7 @@ class TripRepository
             // get the total discount of trip based on offers and coupons, then compute final price
             $discountData = $this->getDiscount($tripType, $user, $data, $pricing['original_price']);
             $profitMargin = $tripType->profit_margin ?? 0;
-            $driverShare = $pricing['original_price'] - ($pricing['original_price'] * ($profitMargin / 100));
-            $driverCreditAmount = max(0, $pricing['original_price'] - $driverShare);
+            ['driver_share' => $driverShare, 'driver_credit_amount' => $driverCreditAmount] = $this->profitCalc($pricing['original_price'], $profitMargin);
             $trip = Trip::create([
                 'client_id'      => $user->id,
                 'trip_type_id'   => $tripType->id,
@@ -321,7 +320,37 @@ class TripRepository
 
         return ['status' => true, 'message' => 'Trip cancelled successfully', 'trip' => $trip];
     }
-
+    public function clientCance(Trip $trip, $client, $reason = null, $description = null): array
+    {
+        $this->unregisterTripDemand($trip);
+        // Decide if cancellation before start or after
+        switch ($trip->status) {
+            case 'searching_driver':
+                $this->TripRequestFormate($trip, 'remove_trip_request');
+                break;
+            case 'driver_assigned':
+            case 'driver_arrived':
+                $trip->driver->update(['is_idle' => true]);
+                $this->walletService->decrement($trip->client, $trip->base_fare, 'trip.trip_cancelled_by_client_fee', [
+                    'trip_id' => $trip->id,
+                ]);
+                ['driver_share' => $driverShare, 'driver_credit_amount' => $driverCreditAmount] = $this->profitCalc($trip->base_fare, $trip->tripType->profit_margin);
+                $this->walletService->increment($trip->driver, $driverCreditAmount, 'trip.trip_cancelled_by_client_fee', [
+                    'trip_id' => $trip->id,
+                ]);
+                $trip->update([
+                    'driver_credit_deposed_amount' => $driverCreditAmount,
+                    'driver_credit_amount' => $driverCreditAmount,
+                    'driver_share' => $driverShare,
+                ]);
+                break;
+        }
+        // Notify
+        broadcast(new \App\Events\TripCancelled($trip))->toOthers();
+        $this->notificationService->notifyTripCancelled($trip, 'client');
+        $trip->update(['status' => 'cancelled_by_client', 'cancelled_at' => now(), 'cancelled_by' => 'client', 'cancel_reason' => $reason, 'cancel_description' => $description]);
+        return ['status' => true, 'message' => 'Trip cancelled successfully', 'trip' => $trip];
+    }
     public function driverCancel(Trip $trip, $driver, $reason = null, $description = null): array
     {
         $this->unregisterTripDemand($trip);
