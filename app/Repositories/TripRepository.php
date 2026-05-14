@@ -194,7 +194,7 @@ class TripRepository
                 return ['status' => false, 'message' => 'Trip already accepted by another driver'];
             }
 
-            if ($driver->is_online !== 1 || $driver->is_idle !== 1) {
+            if ($driver->is_online != 1 || $driver->is_idle != 1) {
                 return ['status' => false, 'message' => 'Driver is offline or not idle'];
             }
             $this->collectBilling($trip);
@@ -231,20 +231,18 @@ class TripRepository
                 $this->walletService->increment($trip->driver, $driverCreditAmount, 'trip.trip_cancelled_by_client_fee', [
                     'trip_id' => $trip->id,
                 ]);
-                if (! empty($billing['baymob_transaction_id']) && $trip->payment_method === 'visa') {
-                        $gateway = $this->paymentGatewayFactory->get('visa');
-                        if ($gateway) {
-                            $gateway->refund($billing['baymob_transaction_id'], $billing['baymob_charged_amount'] ?? $trip->final_price);
-                        } else {
-                            Log::error('No payment gateway available to process refund: ' . ($billing['baymob_transaction_id'] ?? ''));
-                        }
-                    }
+
                 $trip->update([
                     'driver_credit_deposed_amount' => $driverCreditAmount,
                     'driver_credit_amount' => $driverCreditAmount,
                     'driver_share' => $driverShare,
                 ]);
                 break;
+        }
+        try {
+            $client->increment('trips_cancelled_count');
+        } catch (\Exception $e) {
+            Log::error($e->getMessage());
         }
         // Notify
         broadcast(new \App\Events\TripCancelled($trip))->toOthers();
@@ -259,43 +257,46 @@ class TripRepository
 
         $trip->driver()->update(['is_idle' => true]);
 
-        try {
-            $billing = $trip->billing_breakdown ?? [];
+        switch ($trip->status) {
+            case 'driver_assigned':
+                    $trip->update([
+                        'driver_id' => null,
+                        'status' => 'searching_driver',
+                        'driver_assigned_at' => null,
+                        // Keep billing values; collectBilling() is idempotent and should not run twice.
+                    ]);
+                    $this->TripRequestFormate($trip, 'new_trip_request');
+                    $this->registerTripDemand($trip);
+                    break;
+            case 'driver_arrived':
+                $trip->driver->update(['is_idle' => true]);
+                
+                // Apply cancellation fee only if assignment age is at least 5 minutes.
+                if ($trip->driver_assigned_at && $trip->driver_assigned_at->lte(now()->subMinutes(5))) {
 
-            if ($trip->driver_credited && $trip->driver) {
-                $deduct = $trip->driver_credit_amount ?? ($billing['driver_credit_amount'] ?? 0);
-                if ($deduct > 0) {
-                    $this->walletService->decrement($trip->driver, (float) $deduct, 'trip.driver_cancel_revert_driver_credit', [
+                    $this->walletService->decrement($trip->client, $trip->base_fare, 'trip.trip_cancelled_by_client_fee', [
                         'trip_id' => $trip->id,
                     ]);
-                }
-                $trip->update(['driver_credited' => false]);
-            }
-
-            if (! empty($billing['wallet_charged']) && $billing['wallet_charged'] > 0) {
-                if ($trip->client && $trip->client->wallet) {
-                    $this->walletService->increment($trip->client, (float) $billing['wallet_charged'], 'trip.driver_cancel_wallet_refund', [
+                    ['driver_share' => $driverShare, 'driver_credit_amount' => $driverCreditAmount] = $this->profitCalc($trip->base_fare, $trip->tripType->profit_margin);
+                    $this->walletService->increment($trip->driver, $driverCreditAmount, 'trip.trip_cancelled_by_client_fee', [
                         'trip_id' => $trip->id,
                     ]);
-                }
-            } elseif (! empty($billing['baymob_transaction_id'])) {
-                $gateway = $this->paymentGatewayFactory->get('visa');
-                if ($gateway) {
-                    $gateway->refund($billing['baymob_transaction_id'], $billing['baymob_charged_amount'] ?? $trip->final_price);
+
+                    $trip->update([
+                        'driver_credit_deposed_amount' => $driverCreditAmount,
+                        'driver_credit_amount' => $driverCreditAmount,
+                        'driver_share' => $driverShare,
+                    ]);
                 } else {
-                    Log::error('No payment gateway available to process refund: ' . ($billing['baymob_transaction_id'] ?? ''));
-                }
-            } elseif ($trip->is_paid) {
-                if ($trip->client && $trip->client->wallet) {
-                    $this->walletService->increment($trip->client, (float) $trip->final_price, 'trip.driver_cancel_paid_refund', [
-                        'trip_id' => $trip->id,
+                    $trip->update([
+                        'driver_id' => null,
+                        'status' => 'searching_driver',
+                        'driver_assigned_at' => null,
                     ]);
+                    $this->TripRequestFormate($trip, 'new_trip_request');
+                    $this->registerTripDemand($trip);
                 }
-            }
-
-            $trip->update(['is_paid' => false, 'paid_at' => null]);
-        } catch (\Exception $e) {
-            Log::error('Failed to refund client on driver cancel: ' . $e->getMessage());
+                break;
         }
 
         broadcast(new \App\Events\TripCancelled($trip))->toOthers();
@@ -321,11 +322,10 @@ class TripRepository
                 'trip_id' => $trip->id,
             ]);
         }
-        if($trip->billing_breakdown['client_burn_wallet_amount'] ?? 0 > 0){
+        if ($trip->billing_breakdown['client_burn_wallet_amount'] ?? 0 > 0) {
             $this->walletService->decrement($trip->client, (float) ($trip->billing_breakdown['client_burn_wallet_amount'] ?? 0), 'trip.complete_burn_wallet_client', [
                 'trip_id' => $trip->id,
             ]);
-
         }
         if ($cost > 0) {
             $this->walletService->increment($trip->client, $cost, 'trip.complete_credit_client', [
@@ -333,6 +333,7 @@ class TripRepository
             ]);
         }
         $trip->update([
+
             'paid_at' => now(),
             'status' => 'paid',
         ]);

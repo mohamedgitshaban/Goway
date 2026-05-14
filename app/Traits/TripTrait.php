@@ -95,10 +95,11 @@ trait TripTrait
             case 'wallet':
                 $available = $this->walletService->getBalance($trip->client);
                 if ($available >= $trip->final_price) {
+                    $billing['client_burn_wallet_amount'] = $trip->final_price;
+
                     $trip->update([
                         'driver_credit_amount' => $trip->original_price,
                     ]);
-                    $billing['client_burn_wallet_amount'] = $trip->final_price;
                 } else {
                     $billing['client_burn_wallet_amount'] = $available;
                     $trip->update([
