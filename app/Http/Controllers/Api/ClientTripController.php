@@ -46,7 +46,15 @@ class ClientTripController extends Controller
             'coupon_code'       => 'nullable|string',
             'negotiation_enabled' => 'boolean',
         ]);
-
+        if(isset($data['payment_method']) && $data['payment_method'] === 'wallet') {
+            $walletBalance = $user->wallet_balance ?? 0;
+            if ($walletBalance <= 0) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Insufficient wallet balance',
+                ], 400);
+            }
+        }
         $trip = $this->trips->createTrip($user, $data);
 
         return response()->json([

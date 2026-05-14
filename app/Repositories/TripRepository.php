@@ -121,11 +121,10 @@ class TripRepository
             $route = $quote['route'];
             $pricing = $quote['pricing'];
             // get the total discount of trip based on offers and coupons, then compute final price
-            $discountData = $this->getDiscount($tripType, $user, $data , $pricing['original_price']);
+            $discountData = $this->getDiscount($tripType, $user, $data, $pricing['original_price']);
             $profitMargin = $tripType->profit_margin ?? 0;
             $driverShare = $pricing['original_price'] - ($pricing['original_price'] * ($profitMargin / 100));
             $driverCreditAmount = max(0, $pricing['original_price'] - $driverShare);
-
             $trip = Trip::create([
                 'client_id'      => $user->id,
                 'trip_type_id'   => $tripType->id,
@@ -142,8 +141,8 @@ class TripRepository
                 'offer_id'       => $discountData['offer_id'],
                 'coupon_id'      => $discountData['coupon_id'],
                 'billing_breakdown' => $this->billing($route, $pricing, $discountData, $profitMargin, $driverShare, $driverCreditAmount),
-                'driver_credit_amount' => $driverCreditAmount, //driver income
-                'driver_credit_deposed_amount' => 0, //driver deposited amount
+                'driver_credit_amount' => 0, //the amount that put in driver wallet
+                'driver_credit_deposed_amount' => $driverCreditAmount, //driver income
                 'driver_share' => $driverShare, //driver share from trip price after discount and surge
                 'is_paid' => false,
                 'negotiation_enabled' => $data['negotiation_enabled'] ?? false,
@@ -208,24 +207,21 @@ class TripRepository
             // Try to collect payment at accept
             $billing = $trip->billing_breakdown ?? [];
 
-
-            if (! $trip->is_paid) {
-                if ($trip->payment_method === 'wallet') {
+            switch ($trip->payment_method) {
+                case 'wallet':
                     $available = $this->walletService->getBalance($trip->client);
-
                     if ($available >= $trip->final_price) {
-                        $this->walletService->decrement($trip->client, $trip->final_price);
-                        $trip->update(['is_paid' => true, 'paid_at' => now(),  'billing_breakdown' => $billing]);
-                    } elseif ($available > 0) {
-                        $this->walletService->decrement($trip->client, $available);
-                        $remaining = $trip->final_price - $available;
-                        $billing = array_merge($billing, ['wallet_charged' => $available, 'cash_due' => $remaining]);
-                        $trip->update(['payment_method' => 'cash', 'reminder' => $remaining, 'billing_breakdown' => $billing]);
+                        $trip->update([
+                            'driver_credit_amount' => $trip->original_price,
+                        ]);
                     } else {
-                        $billing = array_merge($billing, ['wallet_charged' => 0, 'cash_due' => $trip->final_price]);
-                        $trip->update(['payment_method' => 'cash', 'reminder' => $trip->final_price, 'billing_breakdown' => $billing]);
+                        $trip->update([
+                            'driver_credit_amount' => $trip->original_price - ($trip->final_price - $available),
+                            'reminder' => $trip->final_price - $available,
+                        ]);
                     }
-                } elseif ($trip->payment_method === 'visa') {
+                    break;
+                case 'visa':
                     $chargePayload = [
                         'amount' => $trip->final_price,
                         'currency' => 'Egp',
@@ -246,23 +242,24 @@ class TripRepository
                     if (!empty($res['success']) && $res['success'] === true) {
                         $billing['baymob_transaction_id'] = $res['transaction_id'] ?? null;
                         $billing['baymob_charged_amount'] = $trip->final_price;
-                        $trip->update(['is_paid' => true, 'paid_at' => now(), 'driver_credit_amount' => $driverCreditAmount, 'billing_breakdown' => $billing]);
+                        $trip->update(['is_paid' => true, 'paid_at' => now(), 'driver_credit_amount' => $trip->original_price, 'billing_breakdown' => $billing]);
                     } else {
                         $billing['baymob_failed'] = $res['raw'] ?? $res;
-                        $trip->update(['payment_method' => 'cash', 'reminder' => $trip->final_price, 'billing_breakdown' => $billing]);
+                        $trip->update([
+                            'payment_method' => 'cash',
+                            'reminder' => $trip->final_price,
+                            'driver_credit_amount' => $trip->original_price - $trip->final_price,
+                            'billing_breakdown' => $billing
+                        ]);
                     }
-                }
-            }
-
-            // Credit driver if paid
-            if ($trip->is_paid && ! $trip->driver_credited) {
-                $credit = $trip->driver_credit_amount ?? ($billing['driver_credit_amount'] ?? $driverCreditAmount);
-                if ($credit > 0) {
-                    $this->walletService->increment($driver, (float) $credit, 'trip.assign_driver_credit', [
-                        'trip_id' => $trip->id,
+                    break;
+                default:
+                    // For cash, we consider it paid at accept and will collect from driver at end of trip
+                    $trip->update([
+                        'driver_credit_amount' => $trip->original_price - $trip->final_price, // the driver will put in his wallet is the original price - the final price because the discount amount is not come from driver so we will not consider it in driver credit amount
+                        'reminder' => $trip->final_price,
                     ]);
-                    $trip->update(['driver_credited' => true]);
-                }
+                    break;
             }
 
             // Broadcast + notify
@@ -442,22 +439,26 @@ class TripRepository
 
         return ['status' => true, 'message' => 'Trip cancelled successfully', 'trip_id' => $trip->id];
     }
-
-    private function registerTripDemand(Trip $trip): void
+    public function markTripAsPaid(Trip $trip, float $cost = 0)
     {
-        if ($trip->status !== 'searching_driver') {
-            return;
+        $driver_increment_wallet = $trip->driver_credit_amount - $trip->driver_share  - $trip->reminder - $cost; // the amount that will put in driver wallet is the driver credit amount - the driver share - the cost that maybe the driver need to pay if the client give less than the final price
+        if ($trip->driver && $driver_increment_wallet > 0) {
+            $this->walletService->increment($trip->driver, $driver_increment_wallet, 'trip.complete_credit_driver', [
+                'trip_id' => $trip->id,
+            ]);
+        } elseif ($trip->driver && $driver_increment_wallet < 0) {
+            $this->walletService->decrement($trip->driver, abs($driver_increment_wallet), 'trip.complete_debit_driver', [
+                'trip_id' => $trip->id,
+            ]);
         }
-
-        $geohash = GeoHash::encode((float) $trip->origin_lat, (float) $trip->origin_lng, 5);
-        Redis::sadd($this->surgePricing->demandKey($geohash), $trip->id);
-        Redis::sadd($this->surgePricing->tripTypeDemandKey($geohash, (int) $trip->trip_type_id), $trip->id);
-    }
-
-    private function unregisterTripDemand(Trip $trip): void
-    {
-        $geohash = GeoHash::encode((float) $trip->origin_lat, (float) $trip->origin_lng, 5);
-        Redis::srem($this->surgePricing->demandKey($geohash), $trip->id);
-        Redis::srem($this->surgePricing->tripTypeDemandKey($geohash, (int) $trip->trip_type_id), $trip->id);
+        if ($cost > 0) {
+            $this->walletService->increment($trip->client, $cost, 'trip.complete_credit_client', [
+                'trip_id' => $trip->id,
+            ]);
+        }
+        $trip->update([
+            'paid_at' => now(),
+            'status' => 'paid',
+        ]);
     }
 }

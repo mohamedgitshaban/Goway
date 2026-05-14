@@ -307,15 +307,8 @@ class DriverTripController extends Controller
         // Compensation for cancellations from today
         $income = (float) Trip::query()
             ->where('driver_id', $driver->id)
-            ->where(function ($q) use ($today) {
-                $q->where(function ($qc) use ($today) {
-                    $qc->where('status', 'completed')->whereDate('completed_at', $today);
-                })->orWhere(function ($qc) use ($today) {
-                    $qc->where('status', 'cancelled_by_client')->whereDate('cancelled_at', $today);
-                });
-            })
-
-            ->sum('driver_credit_amount');
+            ->where('created_at', '=', $today)
+            ->sum('driver_credit_deposed_amount');
         return response()->json([
             'status' => true,
             'date' => $income,
@@ -429,52 +422,18 @@ class DriverTripController extends Controller
     public function paid(Request $request, Trip $trip)
     {
         $data = $request->validate([
-            'cost' => 'nullable|numeric|min:0',
+            'cost' => ['nullable', 'numeric', 'min:' . $trip->reminder],
         ]);
         $driver = $request->user();
-
-        if ($driver->usertype !== 'driver') {
-            return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
-        }
 
         if ($trip->driver_id !== $driver->id) {
             return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
         }
-
-        if ($trip->status !== 'in_progress') {
+        if ($trip->status !== 'completed') {
             return response()->json(['status' => false, 'message' => 'Trip cannot be completed at this stage'], 400);
         }
-        if ($trip->payment_method === 'cash') {
-            $profitMargin = $trip->tripType?->profit_margin ?? 0;
-            $driverShare = $trip->final_price - ($trip->final_price * ($profitMargin / 100));
-            $this->walletService->decrement($driver, (float) $driverShare, 'trip.complete_cash_settlement', [
-                'trip_id' => $trip->id,
-            ]);
-        }
-        if (isset($data['cost'])) {
-            $amountToRefund = (float) $trip->reminder > 0 ? (float) $trip->reminder : (float) $trip->final_price;
-            $extraCost = (float) $data['cost'] - (float) $amountToRefund;
-            if ($extraCost > 0) {
-                $this->walletService->increment($trip->client, $extraCost, 'trip.complete_extra_cost_refund', [
-                    'trip_id' => $trip->id,
-                ]);
-                $this->walletService->decrement($driver, $extraCost, 'trip.complete_extra_cost', [
-                    'trip_id' => $trip->id,
-                ]);
-            }
-        }
-        $trip->update([
-            'paid_at' => now(),
-            'status' => 'paid',
-        ]);
-
-        $trip->driver()->update(['is_idle' => true]);
-
-        broadcast(new \App\Events\TripCompleted($trip))->toOthers();
-
-        $trip->load(['client', 'driver']);
-        $this->notificationService->notifyTripCompleted($trip);
-
+        $cost = $data['cost'] && $data['cost'] > 0 ? $data['cost'] - $trip->reminder : 0;
+        $this->trips->markTripAsPaid($trip, $cost);
         try {
             $clientId = $trip->client_id;
             if ($clientId) {
