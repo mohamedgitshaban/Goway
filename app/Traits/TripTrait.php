@@ -38,7 +38,8 @@ trait TripTrait
             'driver_share' => round($driverShare, 2),
             'driver_credit_amount' => round($driverCreditAmount, 2),
             'offer_id' => $discountData['offer_id'],
-            'coupon_id' => $discountData['coupon_id']
+            'coupon_id' => $discountData['coupon_id'],
+            'client_burn_wallet_amount' => 0,
         ];
     }
     public function TripRequestFormate(Trip $trip, $type = 'new_trip_request')
@@ -97,9 +98,12 @@ trait TripTrait
                     $trip->update([
                         'driver_credit_amount' => $trip->original_price,
                     ]);
+                    $billing['client_burn_wallet_amount'] = $trip->final_price;
                 } else {
+                    $billing['client_burn_wallet_amount'] = $available;
                     $trip->update([
                         'driver_credit_amount' => $trip->original_price - ($trip->final_price - $available),
+                        'billing_breakdown' => $billing,
                         'reminder' => $trip->final_price - $available,
                     ]);
                 }
