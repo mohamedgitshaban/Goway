@@ -68,10 +68,6 @@ trait TripTrait
             }
         }
     }
-    public function checkBalance($user)
-    {
-        return $this->walletService->getBalance($user);
-    }
     private function registerTripDemand(Trip $trip): void
     {
         if ($trip->status !== 'searching_driver') {
@@ -88,5 +84,71 @@ trait TripTrait
         $geohash = GeoHash::encode((float) $trip->origin_lat, (float) $trip->origin_lng, 5);
         Redis::srem($this->surgePricing->demandKey($geohash), $trip->id);
         Redis::srem($this->surgePricing->tripTypeDemandKey($geohash, (int) $trip->trip_type_id), $trip->id);
+    }
+    public function collectBilling(Trip $trip): void
+    {
+            // Try to collect payment at accept
+            $billing = $trip->billing_breakdown ?? [];
+
+            switch ($trip->payment_method) {
+                case 'wallet':
+                    $available = $this->walletService->getBalance($trip->client);
+                    if ($available >= $trip->final_price) {
+                        $trip->update([
+                            'driver_credit_amount' => $trip->original_price,
+                        ]);
+                    } else {
+                        $trip->update([
+                            'driver_credit_amount' => $trip->original_price - ($trip->final_price - $available),
+                            'reminder' => $trip->final_price - $available,
+                        ]);
+                    }
+                    break;
+                case 'visa':
+                    $chargePayload = [
+                        'amount' => $trip->final_price,
+                        'currency' => 'Egp',
+                        'description' => 'Goway trip payment',
+                        'customer' => [
+                            'id' => $trip->client->id,
+                            'name' => $trip->client->name ?? ($trip->client->first_name . ' ' . $trip->client->last_name),
+                            'phone' => $trip->client->phone,
+                        ],
+                    ];
+
+                    $gateway = $this->paymentGatewayFactory->get('visa');
+                    if ($gateway) {
+                        $res = $gateway->charge($chargePayload);
+                    } else {
+                        $res = ['success' => false, 'raw' => 'no_payment_gateway_available'];
+                    }
+                    if (!empty($res['success']) && $res['success'] === true) {
+                        $billing['baymob_transaction_id'] = $res['transaction_id'] ?? null;
+                        $billing['baymob_charged_amount'] = $trip->final_price;
+                        $trip->update(['is_paid' => true, 'paid_at' => now(), 'driver_credit_amount' => $trip->original_price, 'billing_breakdown' => $billing]);
+                    } else {
+                        $billing['baymob_failed'] = $res['raw'] ?? $res;
+                        $trip->update([
+                            'payment_method' => 'cash',
+                            'reminder' => $trip->final_price,
+                            'driver_credit_amount' => $trip->original_price - $trip->final_price,
+                            'billing_breakdown' => $billing
+                        ]);
+                    }
+                    break;
+                default:
+                    // For cash, we consider it paid at accept and will collect from driver at end of trip
+                    $trip->update([
+                        'driver_credit_amount' => $trip->original_price - $trip->final_price, // the driver will put in his wallet is the original price - the final price because the discount amount is not come from driver so we will not consider it in driver credit amount
+                        'reminder' => $trip->final_price,
+                    ]);
+                    break;
+            }
+            // If wallet balance is negative, add to trip reminder
+            if($this->walletService->getBalance($trip->client) < 0){
+                $trip->reminder += $this->walletService->getBalance($trip->client);
+                $trip->save();
+            }
+            
     }
 }

@@ -198,69 +198,10 @@ class TripRepository
             if ($driver->is_online !== 1 || $driver->is_idle !== 1) {
                 return ['status' => false, 'message' => 'Driver is offline or not idle'];
             }
-
+            $this->collectBilling($trip);
             $this->unregisterTripDemand($trip);
-
             $driver->update(['is_idle' => false]);
             $trip->update(['driver_id' => $driver->id, 'status' => 'driver_assigned', 'driver_assigned_at' => now()]);
-
-            // Try to collect payment at accept
-            $billing = $trip->billing_breakdown ?? [];
-
-            switch ($trip->payment_method) {
-                case 'wallet':
-                    $available = $this->walletService->getBalance($trip->client);
-                    if ($available >= $trip->final_price) {
-                        $trip->update([
-                            'driver_credit_amount' => $trip->original_price,
-                        ]);
-                    } else {
-                        $trip->update([
-                            'driver_credit_amount' => $trip->original_price - ($trip->final_price - $available),
-                            'reminder' => $trip->final_price - $available,
-                        ]);
-                    }
-                    break;
-                case 'visa':
-                    $chargePayload = [
-                        'amount' => $trip->final_price,
-                        'currency' => 'Egp',
-                        'description' => 'Goway trip payment',
-                        'customer' => [
-                            'id' => $trip->client->id,
-                            'name' => $trip->client->name ?? ($trip->client->first_name . ' ' . $trip->client->last_name),
-                            'phone' => $trip->client->phone,
-                        ],
-                    ];
-
-                    $gateway = $this->paymentGatewayFactory->get('visa');
-                    if ($gateway) {
-                        $res = $gateway->charge($chargePayload);
-                    } else {
-                        $res = ['success' => false, 'raw' => 'no_payment_gateway_available'];
-                    }
-                    if (!empty($res['success']) && $res['success'] === true) {
-                        $billing['baymob_transaction_id'] = $res['transaction_id'] ?? null;
-                        $billing['baymob_charged_amount'] = $trip->final_price;
-                        $trip->update(['is_paid' => true, 'paid_at' => now(), 'driver_credit_amount' => $trip->original_price, 'billing_breakdown' => $billing]);
-                    } else {
-                        $billing['baymob_failed'] = $res['raw'] ?? $res;
-                        $trip->update([
-                            'payment_method' => 'cash',
-                            'reminder' => $trip->final_price,
-                            'driver_credit_amount' => $trip->original_price - $trip->final_price,
-                            'billing_breakdown' => $billing
-                        ]);
-                    }
-                    break;
-                default:
-                    // For cash, we consider it paid at accept and will collect from driver at end of trip
-                    $trip->update([
-                        'driver_credit_amount' => $trip->original_price - $trip->final_price, // the driver will put in his wallet is the original price - the final price because the discount amount is not come from driver so we will not consider it in driver credit amount
-                        'reminder' => $trip->final_price,
-                    ]);
-                    break;
-            }
 
             // Broadcast + notify
             broadcast(new TripAccepted($trip))->toOthers();
@@ -275,7 +216,6 @@ class TripRepository
     public function clientCancel(Trip $trip, $client, $reason = null, $description = null): array
     {
         $this->unregisterTripDemand($trip);
-
         // Decide if cancellation before start or after
         $beforeStart = in_array($trip->status, ['driver_assigned', 'driver_arrived']);
         if ($trip->driver_id) {
