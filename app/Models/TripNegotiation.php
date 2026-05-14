@@ -14,6 +14,7 @@ class TripNegotiation extends Model
         'trip_id',
         'driver_id',
         'proposed_price',
+        'driver_proposed_price',
         'status',
     ];
 

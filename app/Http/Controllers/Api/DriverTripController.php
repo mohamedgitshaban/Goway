@@ -499,7 +499,7 @@ class DriverTripController extends Controller
 
         $negotiation = \App\Models\TripNegotiation::updateOrCreate(
             ['trip_id' => $trip->id, 'driver_id' => $driver->id],
-            ['proposed_price' => $data['proposed_price'], 'status' => 'pending']
+            ['proposed_price' => $data['proposed_price']-$trip->original_price + $trip->final_price, 'driver_proposed_price' => $data['proposed_price'], 'status' => 'pending']
         );
 
         broadcast(new \App\Events\NegotiationOffer($trip, $negotiation))->toOthers();

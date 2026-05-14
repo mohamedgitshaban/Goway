@@ -46,7 +46,7 @@ class ClientTripController extends Controller
             'coupon_code'       => 'nullable|string',
             'negotiation_enabled' => 'boolean',
         ]);
-        if(isset($data['payment_method']) && $data['payment_method'] === 'wallet') {
+        if (isset($data['payment_method']) && $data['payment_method'] === 'wallet') {
             $walletBalance = $user->wallet_balance ?? 0;
             if ($walletBalance <= 0) {
                 return response()->json([
@@ -274,12 +274,16 @@ class ClientTripController extends Controller
         \App\Models\TripNegotiation::where('trip_id', $trip->id)
             ->where('id', '!=', $negotiation->id)
             ->update(['status' => 'rejected']);
-
+        $driverShare = $negotiation->driver_proposed_price - ($negotiation->driver_proposed_price * ($trip->tripType->profit_margin / 100));
+        $driverCreditAmount = max(0, $negotiation->driver_proposed_price - $driverShare);
         $trip->update([
             'negotiated_price_before' => $trip->final_price,
             'negotiated_price_after' => $negotiation->proposed_price,
             'negotiation_price' => $negotiation->proposed_price,
             'final_price' => $negotiation->proposed_price,
+            'original_price' => $negotiation->driver_proposed_price, // Store original price before negotiation for reference
+            'driver_credit_deposed_amount' => $driverCreditAmount, //driver income
+            'driver_share' => $driverShare, //driver share from trip price after discount and surge
             'negotiation_status' => 'accepted',
         ]);
 
