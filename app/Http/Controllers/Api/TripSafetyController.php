@@ -108,7 +108,7 @@ class TripSafetyController extends Controller
             return response()->json(['status' => false, 'message' => 'Safety voice access is not enabled for your account'], 403);
         }
 
-        if (! in_array($trip->status, ['driver_arrived', 'in_progress'])) {
+        if (! in_array($trip->status, ['driver_arrived', 'in_progress', 'completed'])) {
             return response()->json(['status' => false, 'message' => 'Trip is not active for chunk recording'], 400);
         }
 
