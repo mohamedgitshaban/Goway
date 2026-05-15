@@ -16,10 +16,13 @@ use App\Http\Resources\TripResource;
 use App\Services\NotificationService;
 use App\Services\SurgePricingService;
 use App\Support\GeoHash;
+use App\Traits\TripTrait;
 use Illuminate\Support\Facades\Redis;
 
 class ClientTripController extends Controller
 {
+    use TripTrait;
+
     public function __construct(
         protected TripRepository $trips,
         protected NotificationService $notificationService,
