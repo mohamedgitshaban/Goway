@@ -304,11 +304,12 @@ class DriverTripController extends Controller
 
         
         $today = now();
-        // Compensation for cancellations from today
+        // Daily amount based on original price minus driver share.
         $income = (float) Trip::query()
             ->where('driver_id', $driver->id)
             ->whereDate('created_at', '=', $today->toDateString())
-            ->sum('driver_credit_deposed_amount');
+            ->selectRaw('COALESCE(SUM(original_price - driver_share), 0) as income')
+            ->value('income');
         return response()->json([
             'status' => true,
             'date' => $income,
