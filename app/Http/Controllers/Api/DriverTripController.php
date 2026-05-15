@@ -303,11 +303,11 @@ class DriverTripController extends Controller
         $driver = $request->user();
 
         
-        $today = today();
+        $today = now();
         // Compensation for cancellations from today
         $income = (float) Trip::query()
             ->where('driver_id', $driver->id)
-            ->where('created_at', '=', $today)
+            ->whereDate('created_at', '=', $today->toDateString())
             ->sum('driver_credit_deposed_amount');
         return response()->json([
             'status' => true,
