@@ -430,7 +430,7 @@ class DriverTripController extends Controller
         if ($trip->driver_id !== $driver->id) {
             return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
         }
-        if ($trip->status !== 'completed') {
+        if ($trip->status !== 'completed' || $trip->payment_status === 'cancelled_by_client') {
             return response()->json(['status' => false, 'message' => 'Trip cannot be completed at this stage'], 400);
         }
         $cost = $data['cost'] && $data['cost'] > 0 ? $data['cost'] - $trip->reminder : 0;

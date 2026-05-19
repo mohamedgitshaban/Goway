@@ -99,6 +99,7 @@ trait TripTrait
 
                     $trip->update([
                         'driver_credit_amount' => $trip->original_price,
+                        'billing_breakdown' => $billing,
                     ]);
                 } else {
                     $billing['client_burn_wallet_amount'] = $available;
@@ -157,7 +158,7 @@ trait TripTrait
     }
     public function profitCalc($price, $profitMargin): array
     {
-        $driverShare = $price - ($price * ($profitMargin / 100));
+        $driverShare = ($price * ($profitMargin / 100));
         $driverCreditAmount = max(0, $price - $driverShare);
         return [
             'driver_share' => round($driverShare, 2),

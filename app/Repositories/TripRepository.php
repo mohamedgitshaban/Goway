@@ -133,10 +133,10 @@ class TripRepository
                 'estimated_duration_minutes' => $route['duration_minutes'] ?? 0,
                 'base_fare'      => $pricing['base_fare'],
                 'price_per_km'   => $pricing['price_per_km'],
-
                 'original_price' => $pricing['original_price'],
                 'discount_amount' => $discountData['discount_amount'],
                 'final_price'    => max(0, $pricing['original_price'] - $discountData['discount_amount']),
+                'negotiated_price_before' => max(0, $pricing['original_price'] - $discountData['discount_amount']),
                 'offer_id'       => $discountData['offer_id'],
                 'coupon_id'      => $discountData['coupon_id'],
                 'billing_breakdown' => $this->billing($route, $pricing, $discountData, $profitMargin, $driverShare, $driverCreditAmount),
@@ -259,20 +259,9 @@ class TripRepository
 
         switch ($trip->status) {
             case 'driver_assigned':
-                    $trip->update([
-                        'driver_id' => null,
-                        'status' => 'searching_driver',
-                        'driver_assigned_at' => null,
-                        // Keep billing values; collectBilling() is idempotent and should not run twice.
-                    ]);
-                    $this->TripRequestFormate($trip, 'new_trip_request');
-                    $this->registerTripDemand($trip);
-                    break;
             case 'driver_arrived':
-                $trip->driver->update(['is_idle' => true]);
-                
                 // Apply cancellation fee only if assignment age is at least 5 minutes.
-                if ($trip->driver_assigned_at && $trip->driver_assigned_at->lte(now()->subMinutes(5))) {
+                if ($trip->started_at && $trip->started_at->lte(now()->subMinutes(5))) {
 
                     $this->walletService->decrement($trip->client, $trip->base_fare, 'trip.trip_cancelled_by_client_fee', [
                         'trip_id' => $trip->id,
@@ -286,16 +275,30 @@ class TripRepository
                         'driver_credit_deposed_amount' => $driverCreditAmount,
                         'driver_credit_amount' => $driverCreditAmount,
                         'driver_share' => $driverShare,
+                        'status' => 'cancelled_by_driver',
+                        'cancelled_at' => now(),
                     ]);
                 } else {
                     $trip->update([
                         'driver_id' => null,
                         'status' => 'searching_driver',
                         'driver_assigned_at' => null,
+                        'final_price' => $trip->negotiated_price_before, // reset final price to original since driver cancelled before start
+                        'original_price' => $trip->negotiated_price_before + $trip->discount_amount,
+                        'driver_credit_amount' => 0,
+                        'driver_credit_deposed_amount' => $trip->negotiated_price_before + $trip->discount_amount,
+                        'driver_share' => ($trip->negotiated_price_before + $trip->discount_amount) * ($trip->tripType->profit_margin / 100),
+                        // Keep billing values; collectBilling() is idempotent and should not run twice.
                     ]);
                     $this->TripRequestFormate($trip, 'new_trip_request');
                     $this->registerTripDemand($trip);
                 }
+                break;
+            default:
+                $trip->update(['status' => 'cancelled_by_driver', 'cancelled_at' => now(), 'cancelled_by' => 'driver', 'cancel_reason' => $reason, 'cancel_description' => $description]);
+                $this->walletService->decrement($trip->driver, $trip->driver_share, 'trip.trip_cancelled_by_client_fee', [
+                        'trip_id' => $trip->id,
+                    ]);
                 break;
         }
 
