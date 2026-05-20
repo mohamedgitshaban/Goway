@@ -237,7 +237,7 @@ class ClientTripController extends Controller
             return response()->json(['status' => false, 'message' => 'Not your trip'], 403);
         }
 
-        if (! in_array($trip->status, ['searching_driver', 'driver_assigned', 'driver_arrived'])) {
+        if (! in_array($trip->status, ['searching_driver', 'driver_assigned', 'driver_arrived', 'in_progress'])) {
             return response()->json(['status' => false, 'message' => 'Trip cannot be cancelled at this stage'], 400);
         }
 
