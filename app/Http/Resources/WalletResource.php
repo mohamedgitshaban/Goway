@@ -17,11 +17,11 @@ class WalletResource extends JsonResource
         return [
             'id'      => $this->id,
             'balance' => $this->balance,
-            'user'    => [
+            'user'    => $this->user ? [
                 'id'   => $this->user->id,
                 'name' => $this->user->name,
                 'type' => $this->user->usertype,
-            ],
+            ] : null,
         ];
     }
 }

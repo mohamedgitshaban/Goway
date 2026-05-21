@@ -39,7 +39,7 @@ class WalletController extends Controller
         $sortBy  = $request->input('sort_by', 'id');
         $sortDir = $request->input('sort_dir', 'desc');
 
-        $query = Wallet::with('user');
+        $query = Wallet::with('user')->has('user');
 
         // Search (wallet id, user name, balance)
         if ($search) {
@@ -106,7 +106,7 @@ class WalletController extends Controller
     public function show($id)
     {
         
-        $wallet = Wallet::with('user')->find($id);
+        $wallet = Wallet::with('user')->has('user')->find($id);
         if (!$wallet) {
             return response()->json(['message' => 'Wallet not found'], 404);
         }
