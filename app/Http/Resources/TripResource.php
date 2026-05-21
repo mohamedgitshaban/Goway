@@ -70,6 +70,8 @@ class TripResource extends JsonResource
             'waypoints' => TripWaypointResource::collection($this->waypoints),
             'offer' => new OfferResource($this->offer),
             'coupon' => new CouponResource($this->coupon),
+            
+            'trip_safety_recordings' => $this->safetyRecordings()->with('chunks')->get(),
         ];
     }
 }
