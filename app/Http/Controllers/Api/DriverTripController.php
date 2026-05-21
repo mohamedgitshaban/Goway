@@ -406,6 +406,9 @@ class DriverTripController extends Controller
         ]);
 
         $trip->driver()->update(['is_idle' => true]);
+        
+        // Remove destination preference after trip completion
+        \App\Models\DriverDestinationPreference::where('driver_id', $driver->id)->delete();
 
         broadcast(new \App\Events\TripCompleted($trip))->toOthers();
 

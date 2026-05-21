@@ -13,6 +13,7 @@ class DriverResource extends JsonResource
             ->orwhere(function ($query) {
                 $query->where('driver_id', $this->id)
                     ->where('status', 'cancelled_by_client')
+                    
                     ->where('is_paid', false);
             })
             ->first();

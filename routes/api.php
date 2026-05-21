@@ -47,6 +47,8 @@ Route::prefix('admin/auth')->group(function () {
 });
 // Driver-specific grouped endpoints
 Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(function () {
+    Route::get('/banars', [\App\Http\Controllers\Api\BanarController::class, 'index']);
+    
     Route::prefix('auth')->group(function () {
         Route::post('/logout', [\App\Http\Controllers\Api\DriverAuthController::class, 'logout']);
         Route::get('/profile', [\App\Http\Controllers\Api\DriverAuthController::class, 'profile']);
@@ -67,6 +69,9 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
         Route::get('/', [\App\Http\Controllers\Api\DriverDocumentController::class, 'index']);
     });
     Route::post('/location', [\App\Http\Controllers\Api\DriverLocationController::class, 'update']);
+    Route::post('/destination', [\App\Http\Controllers\Api\DriverDestinationController::class, 'store']);
+    Route::delete('/destination', [\App\Http\Controllers\Api\DriverDestinationController::class, 'destroy']);
+    Route::get('/destination', [\App\Http\Controllers\Api\DriverDestinationController::class, 'index']);
 
     Route::prefix('trips')->group(function () {
         Route::get('/stats/completed-average-7-days', [\App\Http\Controllers\Api\DriverTripController::class, 'completedAverageLast7Days']);
@@ -143,6 +148,8 @@ Route::prefix('driver')->middleware(['auth:sanctum', 'usertype'])->group(functio
     });
 });
 Route::prefix('client')->middleware(['auth:sanctum', 'usertype'])->group(function () {
+    Route::get('/banars', [\App\Http\Controllers\Api\BanarController::class, 'index']);
+    
     Route::prefix('auth')->group(function () {
         Route::post('/logout', [\App\Http\Controllers\Api\ClientAuthController::class, 'logout']);
         Route::get('/profile', [\App\Http\Controllers\Api\ClientAuthController::class, 'profile']);
@@ -231,6 +238,14 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
 
         Route::put('/{id}/restore', [DriverController::class, 'restore'])->middleware('admin.permission:drivers.restore');
         // Create / update admin-managed drivers (if needed)
+    });
+
+    Route::prefix('banars')->group(function () {
+        Route::get('/', [\App\Http\Controllers\Api\AdminBanarController::class, 'index']);
+        Route::post('/', [\App\Http\Controllers\Api\AdminBanarController::class, 'store']);
+        Route::get('/{banar}', [\App\Http\Controllers\Api\AdminBanarController::class, 'show']);
+        Route::put('/{banar}', [\App\Http\Controllers\Api\AdminBanarController::class, 'update']); // Using POST + _method=PUT to handle multipart/form-data for image updates conveniently
+        Route::delete('/{banar}', [\App\Http\Controllers\Api\AdminBanarController::class, 'destroy']);
     });
 
     Route::prefix('admins')->group(function () {

@@ -98,6 +98,11 @@ class User extends Authenticatable
         return $this->hasMany(TrustedContact::class, 'user_id');
     }
 
+    public function destinationPreference()
+    {
+        return $this->hasOne(DriverDestinationPreference::class, 'driver_id');
+    }
+
     /**
      * Admin permissions relationship (only for users with usertype === admin)
      */
