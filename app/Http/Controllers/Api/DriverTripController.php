@@ -237,13 +237,10 @@ class DriverTripController extends Controller
             ->where('driver_id', $driver->id)
             ->where('status', 'paid');
 
-        if (! empty($validated['from'])) {
-            $completedTripsQuery->whereDate('completed_at', '>=', $validated['from']);
+        if (! empty($validated['from']) && ! empty($validated['to'])) {
+            $completedTripsQuery->whereBetween('completed_at', [$validated['from'], $validated['to']]);
         }
 
-        if (! empty($validated['to'])) {
-            $completedTripsQuery->whereDate('completed_at', '<=', $validated['to']);
-        }
 
         $cashEarnings = (float) (clone $completedTripsQuery)
             ->where('payment_method', 'cash')
@@ -267,12 +264,8 @@ class DriverTripController extends Controller
             ->where('type', 'mint')
             ->where('source', 'trip.trip_cancelled_by_client_fee');
 
-        if (! empty($validated['from'])) {
-            $compensationQuery->whereDate('created_at', '>=', $validated['from']);
-        }
-
-        if (! empty($validated['to'])) {
-            $compensationQuery->whereDate('created_at', '<=', $validated['to']);
+        if (! empty($validated['from']) && ! empty($validated['to'])) {
+            $compensationQuery->whereBetween('created_at', [$validated['from'], $validated['to']]);
         }
 
         $compensation = (float) $compensationQuery->sum('amount');
