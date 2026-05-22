@@ -236,7 +236,7 @@ class TripRepository
                     'driver_credit_deposed_amount' => $driverCreditAmount,
                     'driver_credit_amount' => $driverCreditAmount,
                     'driver_share' => $driverShare,
-                    'IS_paid' => true,
+                    'is_paid' => true,
                     'paid_at' => now(),
                 ]);
                 break;
