@@ -299,8 +299,8 @@ class TripRepository
             default:
                 $trip->update(['status' => 'cancelled_by_driver', 'cancelled_at' => now(), 'cancelled_by' => 'driver', 'cancel_reason' => $reason, 'cancel_description' => $description]);
                 $this->walletService->decrement($trip->driver, $trip->driver_share, 'trip.trip_cancelled_by_driver_fee', [
-                        'trip_id' => $trip->id,
-                    ]);
+                    'trip_id' => $trip->id,
+                ]);
                 break;
         }
 
@@ -337,10 +337,19 @@ class TripRepository
                 'trip_id' => $trip->id,
             ]);
         }
-        $trip->update([
+        if ($trip->status != 'cancelled_by_client') {
+            $trip->update([
 
-            'paid_at' => now(),
-            'status' => 'paid',
-        ]);
+                'paid_at' => now(),
+                'status' => 'paid',
+                'is_paid' => true,
+            ]);
+        }
+        else {
+            $trip->update([
+                'paid_at' => now(),
+                'is_paid' => true,
+            ]);
+        }
     }
 }
