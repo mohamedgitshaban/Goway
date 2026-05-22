@@ -247,7 +247,7 @@ class DriverTripController extends Controller
 
         $cashEarnings = (float) (clone $completedTripsQuery)
             ->where('payment_method', 'cash')
-            ->sum('final_price');
+            ->sum('reminder');
 
         $walletTripEarningsQuery = WalletTransaction::query()
             ->where('user_id', $driver->id)
@@ -269,7 +269,7 @@ class DriverTripController extends Controller
             ->where('user_id', $driver->id)
             ->where('user_type', 'driver')
             ->where('type', 'mint')
-            ->where('source', 'trip.client_cancel_fee_credit_driver');
+            ->where('source', 'trip.trip_cancelled_by_client_fee');
 
         if (! empty($validated['from'])) {
             $compensationQuery->whereDate('created_at', '>=', $validated['from']);
