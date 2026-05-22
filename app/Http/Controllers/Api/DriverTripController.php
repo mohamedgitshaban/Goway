@@ -161,13 +161,22 @@ class DriverTripController extends Controller
             return response()->json(['status' => false, 'message' => 'Unauthorized'], 403);
         }
 
-        $startDate = today()->subDays(6);
+        $validated = $request->validate([
+            'from' => 'nullable|date',
+            'to' => 'nullable|date|after_or_equal:from',
+        ]);
+
+        $endDate = !empty($validated['to']) ? \Carbon\Carbon::parse($validated['to'])->startOfDay() : today();
+        $startDate = !empty($validated['from']) ? \Carbon\Carbon::parse($validated['from'])->startOfDay() : $endDate->copy()->subDays(6);
+
+        $days = (int) $startDate->diffInDays($endDate) + 1;
+
         $daily = [];
         $sumCompleted = 0;
         $sumEffectiveTotal = 0;
         $sumDailyAverages = 0;
 
-        for ($i = 0; $i < 7; $i++) {
+        for ($i = 0; $i < $days; $i++) {
             $date = $startDate->copy()->addDays($i);
 
             $baseQuery = Trip::where('driver_id', $driver->id)
@@ -195,15 +204,15 @@ class DriverTripController extends Controller
         }
 
         $overallAverage = $sumEffectiveTotal > 0 ? round($sumCompleted / $sumEffectiveTotal, 4) : 0.0;
-        $averageOfDaily = round($sumDailyAverages / 7, 4);
+        $averageOfDaily = $days > 0 ? round($sumDailyAverages / $days, 4) : 0.0;
 
         return response()->json([
             'status' => true,
             'formula' => 'completed_trips / (total_trips - cancelled_by_client)',
             'period' => [
                 'from' => $startDate->toDateString(),
-                'to' => today()->toDateString(),
-                'days' => 7,
+                'to' => $endDate->toDateString(),
+                'days' => $days,
             ],
             'daily' => $daily,
             'overall_average' => $overallAverage,
