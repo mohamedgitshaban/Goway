@@ -263,7 +263,7 @@ class TripRepository
             case 'driver_assigned':
             case 'driver_arrived':
                 // Apply cancellation fee only if assignment age is at least 5 minutes.
-                if ($trip->started_at && $trip->started_at->lte(now()->subMinutes(5))) {
+                if ($trip->driver_arrived_at && $trip->driver_arrived_at->lte(now()->subMinutes(5))) {
 
                     $this->walletService->decrement($trip->client, $trip->base_fare, 'trip.trip_cancelled_by_client_fee', [
                         'trip_id' => $trip->id,
