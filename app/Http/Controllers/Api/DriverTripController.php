@@ -307,9 +307,7 @@ class DriverTripController extends Controller
         // Daily amount based on original price minus driver share.
         $income = (float) Trip::query()
             ->where('driver_id', $driver->id)
-            ->whereDate('created_at', '=', $today->toDateString())
-            ->selectRaw('COALESCE(SUM(original_price - driver_share), 0) as income')
-            ->value('income');
+            ->sum('driver_credit_deposed_amount');
         return response()->json([
             'status' => true,
             'date' => $income,
