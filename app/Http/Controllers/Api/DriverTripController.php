@@ -235,12 +235,15 @@ class DriverTripController extends Controller
 
         $completedTripsQuery = Trip::query()
             ->where('driver_id', $driver->id)
-            ->where('status', 'paid');
+            ->whereIn('status', ['completed', 'paid']);
 
-        if (! empty($validated['from']) && ! empty($validated['to'])) {
-            $completedTripsQuery->whereBetween('completed_at', [$validated['from'], $validated['to']]);
+        if (! empty($validated['from'])) {
+            $completedTripsQuery->whereDate('completed_at', '>=', $validated['from']);
         }
 
+        if (! empty($validated['to'])) {
+            $completedTripsQuery->whereDate('completed_at', '<=', $validated['to']);
+        }
 
         $cashEarnings = (float) (clone $completedTripsQuery)
             ->where('payment_method', 'cash')
@@ -252,8 +255,12 @@ class DriverTripController extends Controller
             ->where('type', 'mint')
             ->where('source', 'trip.assign_driver_credit');
 
-        if (! empty($validated['from']) && ! empty($validated['to'])) {
-            $walletTripEarningsQuery->whereBetween('created_at', [$validated['from'], $validated['to']]);
+        if (! empty($validated['from'])) {
+            $walletTripEarningsQuery->whereDate('created_at', '>=', $validated['from']);
+        }
+
+        if (! empty($validated['to'])) {
+            $walletTripEarningsQuery->whereDate('created_at', '<=', $validated['to']);
         }
 
         $walletTripEarnings = (float) $walletTripEarningsQuery->sum('amount');
@@ -264,8 +271,12 @@ class DriverTripController extends Controller
             ->where('type', 'mint')
             ->where('source', 'trip.trip_cancelled_by_client_fee');
 
-        if (! empty($validated['from']) && ! empty($validated['to'])) {
-            $compensationQuery->whereBetween('created_at', [$validated['from'], $validated['to']]);
+        if (! empty($validated['from'])) {
+            $compensationQuery->whereDate('created_at', '>=', $validated['from']);
+        }
+
+        if (! empty($validated['to'])) {
+            $compensationQuery->whereDate('created_at', '<=', $validated['to']);
         }
 
         $compensation = (float) $compensationQuery->sum('amount');
