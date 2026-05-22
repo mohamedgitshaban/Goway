@@ -18,6 +18,7 @@ class Vehicle extends Model
         'year',
         'plate_number',
         'vehicle_license_image',
+        'vehicle_license_image_back',
         'car_front_image',
         'car_back_image',
         'car_left_image',

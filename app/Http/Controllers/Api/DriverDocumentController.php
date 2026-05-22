@@ -204,6 +204,7 @@ class DriverDocumentController extends Controller
             'year' => 'required|integer|min:1900|max:' . date('Y'),
             'plate_number' => $needsLicence ? 'required|string|unique:vehicles,plate_number' : 'nullable',
             'vehicle_license_image' => $this->fileOrPathRule($request, 'vehicle_license_image'),
+            'vehicle_license_image_back' => $this->fileOrPathRule($request, 'vehicle_license_image_back'),
             'car_front_image' => $this->fileOrPathRule($request, 'car_front_image'),
             'car_back_image' => $this->fileOrPathRule($request, 'car_back_image'),
             'car_left_image' => $this->fileOrPathRule($request, 'car_left_image'),
@@ -246,6 +247,13 @@ class DriverDocumentController extends Controller
                 ! $this->hasUploadedFileOrPath($request, 'vehicle_license_image', $existingVehicle?->vehicle_license_image)
             ) {
                 $validator->errors()->add('vehicle_license_image', 'Vehicle license image is required.');
+            }
+
+            if (
+                $needsLicence &&
+                ! $this->hasUploadedFileOrPath($request, 'vehicle_license_image_back', $existingVehicle?->vehicle_license_image_back)
+            ) {
+                $validator->errors()->add('vehicle_license_image_back', 'Vehicle license image back is required.');
             }
 
             if (! $this->hasUploadedFileOrPath($request, 'car_front_image', $existingVehicle?->car_front_image)) {
@@ -354,6 +362,7 @@ class DriverDocumentController extends Controller
     {
         $fields = [
             'vehicle_license_image',
+            'vehicle_license_image_back',
             'car_front_image',
             'car_back_image',
             'car_left_image',
