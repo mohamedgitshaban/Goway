@@ -31,6 +31,8 @@ class VehicleResource extends JsonResource
             'year' => $this->year ?? null,
             // image fields
             'vehicle_license_image' => $normalize($this->vehicle_license_image ?? null),
+            'vehicle_license_image_back' => $normalize($this->vehicle_license_image_back ?? null),
+
             'car_front_image' => $normalize($this->car_front_image ?? null),
             'car_back_image' => $normalize($this->car_back_image ?? null),
             'car_left_image' => $normalize($this->car_left_image ?? null),
