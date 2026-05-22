@@ -52,6 +52,7 @@ class Trip extends Model
         'cancelled_by',
         'cancel_reason',
         'cancel_description',
+        'driver_credit_deposed_amount'
     ];
 
     protected $casts = [
