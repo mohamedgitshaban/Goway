@@ -255,12 +255,8 @@ class DriverTripController extends Controller
             ->where('type', 'mint')
             ->where('source', 'trip.assign_driver_credit');
 
-        if (! empty($validated['from'])) {
-            $walletTripEarningsQuery->whereDate('created_at', '>=', $validated['from']);
-        }
-
-        if (! empty($validated['to'])) {
-            $walletTripEarningsQuery->whereDate('created_at', '<=', $validated['to']);
+        if (! empty($validated['from']) && ! empty($validated['to'])) {
+            $walletTripEarningsQuery->whereBetween('created_at', [$validated['from'], $validated['to']]);
         }
 
         $walletTripEarnings = (float) $walletTripEarningsQuery->sum('amount');
