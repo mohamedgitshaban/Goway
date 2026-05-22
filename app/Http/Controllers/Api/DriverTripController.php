@@ -235,7 +235,7 @@ class DriverTripController extends Controller
 
         $completedTripsQuery = Trip::query()
             ->where('driver_id', $driver->id)
-            ->where('status', 'completed');
+            ->where('status', 'paid');
 
         if (! empty($validated['from'])) {
             $completedTripsQuery->whereDate('completed_at', '>=', $validated['from']);
