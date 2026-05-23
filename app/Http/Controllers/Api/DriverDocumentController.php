@@ -151,7 +151,7 @@ class DriverDocumentController extends Controller
             $documentData
         );
         if($request->hasFile('profile_image')) {
-            $user->profile_image = $this->uploadFile($request->file('profile_image'), 'profile_images');
+            $user->personal_image = $this->uploadFile($request->file('profile_image'), 'profile_images');
             $user->save();
         }
         // Create or update vehicle data
