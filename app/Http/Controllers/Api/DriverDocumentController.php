@@ -150,7 +150,10 @@ class DriverDocumentController extends Controller
             ['user_id' => $user->id],
             $documentData
         );
-
+        if($request->hasFile('profile_image')) {
+            $user->profile_image = $this->uploadFile($request->file('profile_image'), 'profile_images');
+            $user->save();
+        }
         // Create or update vehicle data
         Vehicle::updateOrCreate(
             ['driver_id' => $user->id],
@@ -190,6 +193,7 @@ class DriverDocumentController extends Controller
         $validator = Validator::make($request->all(), [
             'age' => $ageRule,
             'birth_date' => 'required|date',
+            'profile_image' => $this->fileOrPathRule($request, 'profile_image'),
             'nid_front' => $this->fileOrPathRule($request, 'nid_front'),
             'nid_back'  => $this->fileOrPathRule($request, 'nid_back'),
             'birth_front'  => $this->fileOrPathRule($request, 'birth_front'),
@@ -305,11 +309,11 @@ class DriverDocumentController extends Controller
     /* ---------------------------------------------------------
      *  FILE UPLOAD + DELETE HELPERS
      * --------------------------------------------------------- */
-    private function uploadFile($file)
+    private function uploadFile($file, $folder = 'driver_documents')
     {
         $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-        $file->storeAs('driver_documents', $filename, 'public');
-        return asset('storage/driver_documents/' . $filename);
+        $file->storeAs($folder, $filename, 'public');
+        return asset('storage/' . $folder . '/' . $filename);
     }
 
     private function deleteOldFile($path)
