@@ -33,7 +33,7 @@ class DriverAuthController extends Controller
         }
 
         if ($this->clientExistsWithPhone($request->input('phone'))) {
-            return response()->json(['message' => __('messages.phone_registered_as_client')], 409);
+            return response()->json(['message' => __('messages.phone_registered_as_client')], 404);
         }
 
         $user = Driver::where('phone', $request->input('phone'))->first();
@@ -65,7 +65,7 @@ class DriverAuthController extends Controller
         }
 
         if ($this->clientExistsWithPhone($request->input('phone'))) {
-            return response()->json(['message' => __('messages.phone_registered_as_client')], 409);
+            return response()->json(['message' => __('messages.phone_registered_as_client')], 404);
         }
 
         $user = Driver::where('phone', $request->input('phone'))->first();
