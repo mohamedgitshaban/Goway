@@ -40,6 +40,7 @@ trait TripTrait
             'offer_id' => $discountData['offer_id'],
             'coupon_id' => $discountData['coupon_id'],
             'client_burn_wallet_amount' => 0,
+            'client_indebtedness' => 0,
         ];
     }
     public function TripRequestFormate(Trip $trip, $type = 'new_trip_request')
@@ -179,8 +180,13 @@ trait TripTrait
                 break;
         }
         // If wallet balance is negative, add to trip reminder
-        if ($this->walletService->getBalance($trip->client) < 0) {
-            $trip->reminder += $this->walletService->getBalance($trip->client);
+        $negativeBalance = round(abs(min(0, $this->walletService->getBalance($trip->client))), 2);
+        $existingIndebtedness = round((float) ($billing['client_indebtedness'] ?? 0), 2);
+
+        if ($negativeBalance > 0 && $existingIndebtedness !== $negativeBalance) {
+            $billing['client_indebtedness'] = $negativeBalance;
+            $trip->reminder = round((float) $trip->reminder - $existingIndebtedness + $negativeBalance, 2);
+            $trip->billing_breakdown = $billing;
             $trip->save();
         }
     }

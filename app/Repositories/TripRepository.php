@@ -333,6 +333,12 @@ class TripRepository
                 'trip_id' => $trip->id,
             ]);
         }
+        if($trip->billing_breakdown['client_indebtedness'] ?? 0 > 0) {
+            $this->walletService->increment($trip->client, (float) ($trip->billing_breakdown['client_indebtedness'] ?? 0), 'trip.collect_indebtedness_client', [
+                'trip_id' => $trip->id,
+            ]);
+
+        }
         if ($cost > 0) {
             $this->walletService->increment($trip->client, $cost, 'trip.complete_credit_client', [
                 'trip_id' => $trip->id,
