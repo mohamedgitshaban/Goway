@@ -247,9 +247,10 @@ class TripRepository
             Log::error($e->getMessage());
         }
         // Notify
+        $trip->update(['status' => 'cancelled_by_client', 'cancelled_at' => now(), 'cancelled_by' => 'client', 'cancel_reason' => $reason, 'cancel_description' => $description]);
+
         broadcast(new \App\Events\TripCancelled($trip))->toOthers();
         $this->notificationService->notifyTripCancelled($trip, 'client');
-        $trip->update(['status' => 'cancelled_by_client', 'cancelled_at' => now(), 'cancelled_by' => 'client', 'cancel_reason' => $reason, 'cancel_description' => $description]);
         return ['status' => true, 'message' => 'Trip cancelled successfully', 'trip' => $trip];
     }
     public function driverCancel(Trip $trip, $driver, $reason = null, $description = null): array
@@ -333,11 +334,10 @@ class TripRepository
                 'trip_id' => $trip->id,
             ]);
         }
-        if($trip->billing_breakdown['client_indebtedness'] ?? 0 > 0) {
+        if ($trip->billing_breakdown['client_indebtedness'] ?? 0 > 0) {
             $this->walletService->increment($trip->client, (float) ($trip->billing_breakdown['client_indebtedness'] ?? 0), 'trip.collect_indebtedness_client', [
                 'trip_id' => $trip->id,
             ]);
-
         }
         if ($cost > 0) {
             $this->walletService->increment($trip->client, $cost, 'trip.complete_credit_client', [
@@ -351,8 +351,7 @@ class TripRepository
                 'status' => 'paid',
                 'is_paid' => true,
             ]);
-        }
-        else {
+        } else {
             $trip->update([
                 'paid_at' => now(),
                 'is_paid' => true,
