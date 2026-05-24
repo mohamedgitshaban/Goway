@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\WalletTransaction;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\JsonResource;
 
 class WalletTransactionController extends Controller
 {
@@ -55,7 +56,10 @@ class WalletTransactionController extends Controller
             ->paginate((int) $request->input('limit', 20))
             ->appends($request->query());
 
-        return response()->json(['status' => true, 'transactions' => $data]);
+        return response()->json([
+            'status' => true,
+            'data' => JsonResource::collection($data),
+        ]);
     }
 
     private function buildQuery(Request $request)
