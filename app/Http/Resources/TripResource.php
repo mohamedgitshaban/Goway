@@ -38,6 +38,7 @@ class TripResource extends JsonResource
             'driver_credit_deposed_amount' => (float) $this->driver_credit_deposed_amount,
             'reminder' => $this->reminder,
             'is_paid' => $this->is_paid,
+            'driver_share' => (float) $this->driver_share,
             'paid_at' => $this->paid_at?->toISOString(),
             'driver_credit_amount' => (float) $this->driver_credit_amount,
             'driver_credited' => $this->driver_credited,
