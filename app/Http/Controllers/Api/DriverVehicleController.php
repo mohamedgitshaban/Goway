@@ -50,7 +50,7 @@ class DriverVehicleController extends Controller
             'vehicle_model_id' => 'required|exists:vehicle_models,id',
             'color' => 'required|string',
             'year' => 'required|integer|min:1900|max:' . date('Y'),
-            'plate_number' => 'required|string|unique:vehicles,plate_number',
+            'plate_number' => ($needLicence ? 'required' : 'nullable') . '|string|unique:vehicles,plate_number',
             'vehicle_license_image' => ($needLicence ? 'required' : 'nullable') . '|mimes:jpg,jpeg,png,pdf',
             'car_front_image' => 'required|mimes:jpg,jpeg,png,pdf',
             'car_back_image' => 'required|mimes:jpg,jpeg,png,pdf',
