@@ -119,7 +119,7 @@ class AdminChatController extends Controller
             'body'            => $data['body'],
             'attachment'      => $attachmentPath,
         ]);
-
+        $conversation->touch(); // Update conversation's updated_at
         broadcast(new NewChatMessage($message))->toOthers();
 
         // Notify the user
