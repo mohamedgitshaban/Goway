@@ -330,6 +330,7 @@ class DriverTripController extends Controller
         // Daily amount based on original price minus driver share.
         $income = (float) Trip::query()
             ->where('driver_id', $driver->id)
+            ->where('is_paid', true)
             ->sum('driver_credit_deposed_amount');
         return response()->json([
             'status' => true,
