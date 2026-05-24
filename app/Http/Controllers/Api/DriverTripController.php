@@ -229,20 +229,34 @@ class DriverTripController extends Controller
         }
 
         $validated = $request->validate([
-            'from' => 'nullable|date',
-            'to' => 'nullable|date|after_or_equal:from',
+            'from' => 'nullable|date_format:j-n-Y',
+            'to' => 'nullable|date_format:j-n-Y',
         ]);
+
+        $fromDate = ! empty($validated['from'])
+            ? \Carbon\Carbon::createFromFormat('!j-n-Y', $validated['from'])->toDateString()
+            : null;
+        $toDate = ! empty($validated['to'])
+            ? \Carbon\Carbon::createFromFormat('!j-n-Y', $validated['to'])->toDateString()
+            : null;
+
+        if ($fromDate && $toDate && $toDate < $fromDate) {
+            return response()->json([
+                'status' => false,
+                'message' => 'The to date must be after or equal to from date.',
+            ], 422);
+        }
 
         $completedTripsQuery = Trip::query()
             ->where('driver_id', $driver->id)
             ->whereIn('status', ['completed', 'paid']);
 
-        if (! empty($validated['from'])) {
-            $completedTripsQuery->whereDate('completed_at', '>=', $validated['from']);
+        if ($fromDate) {
+            $completedTripsQuery->whereDate('completed_at', '>=', $fromDate);
         }
 
-        if (! empty($validated['to'])) {
-            $completedTripsQuery->whereDate('completed_at', '<=', $validated['to']);
+        if ($toDate) {
+            $completedTripsQuery->whereDate('completed_at', '<=', $toDate);
         }
 
         $cashEarnings = (float) (clone $completedTripsQuery)
@@ -255,12 +269,12 @@ class DriverTripController extends Controller
             ->where('type', 'mint')
             ->where('source', 'trip.assign_driver_credit');
 
-        if (! empty($validated['from'])) {
-            $walletTripEarningsQuery->whereDate('created_at', '>=', $validated['from']);
+        if ($fromDate) {
+            $walletTripEarningsQuery->whereDate('created_at', '>=', $fromDate);
         }
 
-        if (! empty($validated['to'])) {
-            $walletTripEarningsQuery->whereDate('created_at', '<=', $validated['to']);
+        if ($toDate) {
+            $walletTripEarningsQuery->whereDate('created_at', '<=', $toDate);
         }
 
         $walletTripEarnings = (float) $walletTripEarningsQuery->sum('amount');
@@ -271,12 +285,12 @@ class DriverTripController extends Controller
             ->where('type', 'mint')
             ->where('source', 'trip.trip_cancelled_by_client_fee');
 
-        if (! empty($validated['from'])) {
-            $compensationQuery->whereDate('created_at', '>=', $validated['from']);
+        if ($fromDate) {
+            $compensationQuery->whereDate('created_at', '>=', $fromDate);
         }
 
-        if (! empty($validated['to'])) {
-            $compensationQuery->whereDate('created_at', '<=', $validated['to']);
+        if ($toDate) {
+            $compensationQuery->whereDate('created_at', '<=', $toDate);
         }
 
         $compensation = (float) $compensationQuery->sum('amount');
@@ -291,8 +305,8 @@ class DriverTripController extends Controller
         return response()->json([
             'status' => true,
             'period' => [
-                'from' => $validated['from'] ?? null,
-                'to' => $validated['to'] ?? null,
+                'from' => $fromDate,
+                'to' => $toDate,
             ],
             'metrics' => [
                 'cash_paid_trips_earnings' => round($cashEarnings, 2),

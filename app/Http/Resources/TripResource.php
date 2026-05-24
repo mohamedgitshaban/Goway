@@ -35,7 +35,7 @@ class TripResource extends JsonResource
             'negotiated_price_after' => (float)  $this->negotiated_price_after,
             'negotiation_price' => (float)  $this->negotiation_price,
             'negotiation_status' => $this->negotiation_status,
-
+            'driver_credit_deposed_amount' => (float) $this->driver_credit_deposed_amount,
             'reminder' => $this->reminder,
             'is_paid' => $this->is_paid,
             'paid_at' => $this->paid_at?->toISOString(),
