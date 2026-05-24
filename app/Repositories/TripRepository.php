@@ -317,6 +317,7 @@ class TripRepository
     }
     public function markTripAsPaid(Trip $trip, float $cost = 0)
     {
+        $trip->driver->update(['is_idle' => true]);
         $driver_increment_wallet = $trip->driver_credit_amount - $trip->driver_share  - $cost; // the amount that will put in driver wallet is the driver credit amount - the driver share - the cost that maybe the driver need to pay if the client give less than the final price
         if ($trip->driver && $driver_increment_wallet > 0) {
             $this->walletService->increment($trip->driver, $driver_increment_wallet, 'trip.complete_credit_driver', [
