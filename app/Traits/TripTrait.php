@@ -5,6 +5,7 @@ namespace App\Traits;
 use App\Events\NewTripRequest;
 use App\Models\Driver;
 use App\Models\Trip;
+use App\Services\DriverDestinationPreferenceService;
 use App\Support\GeoHash;
 use Illuminate\Support\Facades\Redis;
 
@@ -65,27 +66,7 @@ trait TripTrait
 
             $filteredDrivers = [];
             foreach ($drivers as $driver) {
-                if ($driver->destinationPreference) {
-                    $routeData = app(\App\Services\GoogleRouteService::class)->compute([
-                        'origin_lat' => (float) $trip->destination_lat,
-                        'origin_lng' => (float) $trip->destination_lng,
-                        'destination_lat' => (float) $driver->destinationPreference->lat,
-                        'destination_lng' => (float) $driver->destinationPreference->lng,
-                        'waypoints' => [],
-                    ]);
-                    
-                    $distanceToPref = isset($routeData['distance_km']) ? (float) $routeData['distance_km'] : GeoHash::distanceKm(
-                        $trip->destination_lat,
-                        $trip->destination_lng,
-                        $driver->destinationPreference->lat,
-                        $driver->destinationPreference->lng
-                    );
-                    
-                    // Allow if the trip's destination is within 20km of the driver's preferred destination (meaning it's on the way or close)
-                    if ($distanceToPref <= 20) {
-                        $filteredDrivers[] = $driver;
-                    }
-                } else {
+                if (app(DriverDestinationPreferenceService::class)->matchesTrip($driver, $trip)) {
                     $filteredDrivers[] = $driver;
                 }
             }
