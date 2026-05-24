@@ -9,7 +9,7 @@ class DriverResource extends JsonResource
     public function toArray($request)
     {
                 $activeTrip = \App\Models\Trip::where('driver_id', $this->id)
-            ->whereIn('status', ['pending', 'searching_driver', 'driver_assigned', 'driver_arrived', 'in_progress','compoleted'])
+            ->whereIn('status', ['pending', 'searching_driver', 'driver_assigned', 'driver_arrived', 'in_progress','completed'])
             ->orwhere(function ($query) {
                 $query->where('driver_id', $this->id)
                     ->where('status', 'cancelled_by_client')
