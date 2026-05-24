@@ -49,15 +49,37 @@ class NewTripRetryJob implements ShouldQueue
         $notification = app(NotificationService::class);
 
             if (! empty($nearbyDrivers)) {
-                $drivers = \App\Models\Driver::whereIn('id', $nearbyDrivers)
-                    ->where('is_online', 1)
-                    ->where('is_idle', 1)
-                    ->whereHas('vehicles', function ($query) use ($trip) {
-                        $query->where('isactive', 1);
-                        $query->where('trip_type_id', $trip->trip_type_id);
-                    })
-                    ->get();
-                foreach ($drivers as $driver) {
+                           $drivers = Driver::with('destinationPreference')->whereIn('id', $nearbyDrivers)->where('is_online', 1)->where('is_idle', 1)->whereHas('activeVehicle', function ($query) use ($trip) {
+                $query->where('trip_type_id', $trip->trip_type_id);
+            })->get();
+
+            $filteredDrivers = [];
+            foreach ($drivers as $driver) {
+                if ($driver->destinationPreference) {
+                    $routeData = app(\App\Services\GoogleRouteService::class)->compute([
+                        'origin_lat' => (float) $trip->destination_lat,
+                        'origin_lng' => (float) $trip->destination_lng,
+                        'destination_lat' => (float) $driver->destinationPreference->lat,
+                        'destination_lng' => (float) $driver->destinationPreference->lng,
+                        'waypoints' => [],
+                    ]);
+                    
+                    $distanceToPref = isset($routeData['distance_km']) ? (float) $routeData['distance_km'] : GeoHash::distanceKm(
+                        $trip->destination_lat,
+                        $trip->destination_lng,
+                        $driver->destinationPreference->lat,
+                        $driver->destinationPreference->lng
+                    );
+                    
+                    // Allow if the trip's destination is within 20km of the driver's preferred destination (meaning it's on the way or close)
+                    if ($distanceToPref <= 20) {
+                        $filteredDrivers[] = $driver;
+                    }
+                } else {
+                    $filteredDrivers[] = $driver;
+                }
+            }
+                foreach ($filteredDrivers as $driver) {
                     broadcast(new NewTripRequest($trip, $driver->id , 'new_trip_request_retry'));
                     $notification->notifyNewTripRequest($trip, $driver);
                 }
