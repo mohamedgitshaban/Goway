@@ -241,11 +241,11 @@ Route::prefix('admin')->middleware(['auth:sanctum', 'usertype',])->group(functio
     });
 
     Route::prefix('banars')->group(function () {
-        Route::get('/', [\App\Http\Controllers\Api\AdminBanarController::class, 'index']);
-        Route::post('/', [\App\Http\Controllers\Api\AdminBanarController::class, 'store']);
-        Route::get('/{banar}', [\App\Http\Controllers\Api\AdminBanarController::class, 'show']);
-        Route::put('/{banar}', [\App\Http\Controllers\Api\AdminBanarController::class, 'update']); // Using POST + _method=PUT to handle multipart/form-data for image updates conveniently
-        Route::delete('/{banar}', [\App\Http\Controllers\Api\AdminBanarController::class, 'destroy']);
+        Route::get('/', [\App\Http\Controllers\Api\AdminBanarController::class, 'index'])->middleware('admin.permission:banars.index');
+        Route::post('/', [\App\Http\Controllers\Api\AdminBanarController::class, 'store'])->middleware('admin.permission:banars.store');
+        Route::get('/{banar}', [\App\Http\Controllers\Api\AdminBanarController::class, 'show'])->middleware('admin.permission:banars.show');
+        Route::put('/{banar}', [\App\Http\Controllers\Api\AdminBanarController::class, 'update'])->middleware('admin.permission:banars.update'); // Using POST + _method=PUT to handle multipart/form-data for image updates conveniently
+        Route::delete('/{banar}', [\App\Http\Controllers\Api\AdminBanarController::class, 'destroy'])->middleware('admin.permission:banars.destroy');
     });
 
     Route::prefix('admins')->group(function () {

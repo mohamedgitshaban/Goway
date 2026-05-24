@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\BanarResource;
 use App\Models\Banar;
 use App\Traits\HandlesMultipart;
 use Illuminate\Http\Request;
@@ -44,10 +45,7 @@ class AdminBanarController extends Controller
 
         $banars = $query->paginate($limit);
 
-        return response()->json([
-            'status' => true,
-            'data' => $banars
-        ]);
+        return BanarResource::collection($banars);
     }
 
     /**
@@ -74,7 +72,7 @@ class AdminBanarController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Banar created successfully',
-            'data' => $banar
+            'data' => new BanarResource($banar)
         ], 201);
     }
 
@@ -85,7 +83,7 @@ class AdminBanarController extends Controller
     {
         return response()->json([
             'status' => true,
-            'data' => $banar
+            'data' => new BanarResource($banar)
         ]);
     }
 
@@ -127,7 +125,7 @@ class AdminBanarController extends Controller
         return response()->json([
             'status' => true,
             'message' => 'Banar updated successfully',
-            'data' => $banar
+            'data' => new BanarResource($banar)
         ]);
     }
 

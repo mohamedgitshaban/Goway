@@ -32,6 +32,7 @@ class AdminUserSeeder extends Seeder
             ,'dashboard.offers','dashboard.coupons',
             // offers & coupons
             'offers.index','offers.store','offers.show','offers.update','offers.destroy',
+            'banars.index','banars.store','banars.show','banars.update','banars.destroy',
             'coupons.index','coupons.store','coupons.show','coupons.update','coupons.destroy',
             // trips
             'trips.index','roles.index','roles.store', 'roles.show', 'roles.update', 'roles.destroy', 'roles.restore',
