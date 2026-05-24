@@ -49,12 +49,12 @@ class ClientTripController extends Controller
             'coupon_code'       => 'nullable|string',
             'negotiation_enabled' => 'boolean',
         ]);
-        if (isset($data['payment_method']) && $data['payment_method'] === 'wallet') {
-            $walletBalance = $user->wallet_balance ?? 0;
-            if ($walletBalance <= 0) {
-                $data['payment_method'] = 'cash'; // Fallback to cash if wallet is selected but balance is insufficient
-            }
-        }
+        // if (isset($data['payment_method']) && $data['payment_method'] === 'wallet') {
+        //     $walletBalance = $user->wallet_balance ?? 0;
+        //     if ($walletBalance <= 0) {
+        //         $data['payment_method'] = 'cash'; // Fallback to cash if wallet is selected but balance is insufficient
+        //     }
+        // }
         $trip = $this->trips->createTrip($user, $data);
 
         return response()->json([
