@@ -86,7 +86,7 @@ class ClientTripController extends Controller
         $sortBy = $request->input('sort_by', 'id');
         $sortDir = $request->input('sort_dir', 'desc');
 
-        $query = Trip::with(['client', 'driver', 'tripType'])
+        $query = Trip::with(Trip::resourceRelations())
             ->where('client_id', $client->id);
 
         if ($search) {

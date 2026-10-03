@@ -8,9 +8,15 @@ class ClientResource extends JsonResource
 {
     public function toArray($request)
     {
-        $activeTrip = \App\Models\Trip::where('client_id', $this->id)
-            ->whereIn('status', ['pending', 'searching_driver', 'driver_assigned', 'driver_arrived', 'in_progress'])
-            ->first();
+        // Only resolve the active trip when it will be rendered (nested clients set without_trip).
+        $activeTrip = null;
+        if (empty($this->without_trip)) {
+            $activeTrip = $this->resource->relationLoaded('activeTrip')
+                ? $this->activeTrip
+                : \App\Models\Trip::where('client_id', $this->id)
+                    ->whereIn('status', ['pending', 'searching_driver', 'driver_assigned', 'driver_arrived', 'in_progress'])
+                    ->first();
+        }
 
         return [
             'id'         => $this->id,

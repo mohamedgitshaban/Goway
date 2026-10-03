@@ -38,4 +38,13 @@ class Client extends User
         return $this->hasOne(Wallet::class, 'user_id');
     }
 
+    /**
+     * The trip shown as "current_trip" in ClientResource.
+     */
+    public function activeTrip()
+    {
+        return $this->hasOne(Trip::class, 'client_id')
+            ->whereIn('status', ['pending', 'searching_driver', 'driver_assigned', 'driver_arrived', 'in_progress']);
+    }
+
 }

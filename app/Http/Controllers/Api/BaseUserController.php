@@ -11,6 +11,8 @@ class BaseUserController extends Controller
 {
     protected $model;
     protected $resource;
+    // Relations rendered by $resource, eager-loaded on index to avoid N+1 queries.
+    protected $with = [];
 
     public function index(Request $request)
     {
@@ -20,7 +22,7 @@ class BaseUserController extends Controller
         $sortBy = $request->input('sort_by', 'id');
         $sortDir = $request->input('sort_dir', 'desc');
 
-        $query = $this->model::query();
+        $query = $this->model::with($this->with);
 
         // Search
         if ($search) {

@@ -30,9 +30,18 @@ class ClientNearbyDriversController extends Controller
             ->where('usertype', 'driver')
             ->where('is_online', 1)
             ->where('is_idle', 1)
-            ->get()
-            ->map(function ($driver) {
-                $loc = Redis::hgetall("driver:{$driver->id}:location");
+            ->get();
+
+        // Fetch all driver locations in a single Redis round-trip
+        $locations = $drivers->isEmpty() ? [] : Redis::pipeline(function ($pipe) use ($drivers) {
+            foreach ($drivers as $driver) {
+                $pipe->hgetall("driver:{$driver->id}:location");
+            }
+        });
+
+        $drivers = $drivers->values()
+            ->map(function ($driver, $index) use ($locations) {
+                $loc = $locations[$index] ?? [];
 
                 return [
                     'id'   => $driver->id,

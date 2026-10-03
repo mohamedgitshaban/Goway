@@ -12,6 +12,9 @@ use Illuminate\Validation\Rule;
 
 class RoleController extends Controller
 {
+    // Permissions are the same for every role in a request; query them once.
+    private $permissions = null;
+
     // list roles
     public function index(Request $request)
     {
@@ -258,7 +261,7 @@ class RoleController extends Controller
     // build permissions payload similar to AdminPermissionController
     private function buildPermissionsPayload(Request $request, $includeAssigned = false, $assignedIds = [])
     {
-        $perms = Permission::orderBy('name')->get();
+        $perms = $this->permissions ??= Permission::orderBy('name')->get();
 
         $acceptHeader = $request->header('accept_lang') ?: $request->get('accept_lang') ?: $request->header('Accept-Language');
         $locale = app()->getLocale();

@@ -32,7 +32,8 @@ abstract class BaseDiscountController extends Controller
         $sortBy    = $request->input('sort_by', 'id');
         $sortDir   = $request->input('sort_dir', 'desc');
 
-        $query = $this->model::query();
+        // tripType is rendered by the Coupon/Offer resources
+        $query = $this->model::with('tripType');
 
         // Filter by trip type
         if ($tripType) {

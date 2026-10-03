@@ -131,4 +131,24 @@ class Trip extends Model
     {
         return $this->hasMany(TripSafetyRecording::class)->latest();
     }
+
+    /**
+     * Relations rendered by TripResource. Eager-load them on trip lists to avoid N+1 queries.
+     */
+    public static function resourceRelations(): array
+    {
+        return array_merge(
+            [
+                'client.wallet',
+                'tripType',
+                'waypoints',
+                'offer.tripType',
+                'coupon.tripType',
+                'clientRating',
+                'driverRating',
+                'safetyRecordings.chunks',
+            ],
+            array_map(fn ($relation) => "driver.{$relation}", Driver::RESOURCE_RELATIONS)
+        );
+    }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -58,9 +59,18 @@ class FirebaseService
     }
 
     /**
-     * Get OAuth2 access token from the service account credentials.
+     * Get OAuth2 access token, cached so bulk sends don't request a new token per message.
+     * Tokens are valid for 1 hour; refresh a bit earlier.
      */
     private function getAccessToken(): string
+    {
+        return Cache::remember('firebase:fcm_access_token', now()->addMinutes(50), fn () => $this->requestAccessToken());
+    }
+
+    /**
+     * Request a new OAuth2 access token from the service account credentials.
+     */
+    private function requestAccessToken(): string
     {
         $credentialsPath = config('firebase.credentials');
 

@@ -17,6 +17,11 @@ use Illuminate\Http\Request;
 
 class ChatController extends Controller
 {
+    /**
+     * Relations rendered by ConversationResource.
+     */
+    private const RESOURCE_RELATIONS = ['user', 'admin', 'latestMessage.sender', 'messages.sender'];
+
     public function __construct(
         protected NotificationService $notificationService
     ) {}
@@ -64,7 +69,7 @@ class ChatController extends Controller
         return response()->json([
             'status'       => true,
             'message'      => 'Support conversation started',
-            'conversation' => new ConversationResource($conversation->load('latestMessage')),
+            'conversation' => new ConversationResource($conversation->loadMissing(self::RESOURCE_RELATIONS)),
             'chat_channel' => "chat.{$conversation->id}",
         ], 201);
     }
@@ -115,7 +120,7 @@ class ChatController extends Controller
         return response()->json([
             'status'       => true,
             'message'      => 'Trip support conversation started',
-            'conversation' => new ConversationResource($conversation->load('latestMessage')),
+            'conversation' => new ConversationResource($conversation->loadMissing(self::RESOURCE_RELATIONS)),
             'chat_channel' => "chat.{$conversation->id}",
         ], 201);
     }
@@ -184,6 +189,7 @@ class ChatController extends Controller
                 'sender_id'       => $user->id,
                 'body'            => $data['body'],
             ]);
+            $conversation->loadMissing(self::RESOURCE_RELATIONS);
             broadcast(new NewConversation($conversation, $otherId));
             broadcast(new NewChatMessage($message))->toOthers();
             $this->notifyParticipants($user, $conversation, $data['body']);
@@ -193,7 +199,7 @@ class ChatController extends Controller
 
         return response()->json([
             'status'       => true,
-            'conversation' => new ConversationResource($conversation->load('messages.sender')),
+            'conversation' => new ConversationResource($conversation->loadMissing(self::RESOURCE_RELATIONS)),
             'message'      => $messageResource,
             'chat_channel' => "chat.{$conversation->id}",
         ]);
@@ -296,7 +302,7 @@ class ChatController extends Controller
     {
         $user = $request->user();
 
-        $query = Conversation::with('latestMessage')
+        $query = Conversation::with(self::RESOURCE_RELATIONS)
             ->where(function ($q) use ($user) {
                 $q->where('user_id', $user->id);
 
@@ -411,6 +417,9 @@ class ChatController extends Controller
     private function notifyAdminsNewSupport(Conversation $conversation, $sender): void
     {
         $admins = User::where('usertype', User::ROLE_ADMIN)->get();
+
+        // Every broadcast below renders the same conversation; load it once.
+        $conversation->loadMissing(self::RESOURCE_RELATIONS);
 
         foreach ($admins as $admin) {
             // Real-time broadcast so admin dashboard updates instantly

@@ -19,6 +19,7 @@ class AdminController extends BaseUserController
     {
         $this->model = Admin::class;
         $this->resource = AdminResource::class;
+        $this->with = ['wallet', 'role.permissions'];
     }
     /**
      * Admin management controller — allows creating/updating admins and syncing permissions

@@ -8,15 +8,23 @@ class DriverResource extends JsonResource
 {
     public function toArray($request)
     {
-                $activeTrip = \App\Models\Trip::where('driver_id', $this->id)
-            ->whereIn('status', ['pending', 'searching_driver', 'driver_assigned', 'driver_arrived', 'in_progress','completed'])
-            ->orwhere(function ($query) {
-                $query->where('driver_id', $this->id)
-                    ->where('status', 'cancelled_by_client')
-                    
-                    ->where('is_paid', false);
-            })
-            ->first();
+        // Load every relation rendered below in batched queries (no-op when already eager-loaded).
+        $this->resource->loadMissing(\App\Models\Driver::RESOURCE_RELATIONS);
+
+        // Only resolve the active trip when it will be rendered (nested drivers set without_trip).
+        $activeTrip = null;
+        if (empty($this->without_trip)) {
+            $activeTrip = $this->resource->relationLoaded('activeTrip')
+                ? $this->activeTrip
+                : \App\Models\Trip::where('driver_id', $this->id)
+                    ->whereIn('status', ['pending', 'searching_driver', 'driver_assigned', 'driver_arrived', 'in_progress','completed'])
+                    ->orwhere(function ($query) {
+                        $query->where('driver_id', $this->id)
+                            ->where('status', 'cancelled_by_client')
+                            ->where('is_paid', false);
+                    })
+                    ->first();
+        }
         $doc = $this->driverDocument; // one-to-one relation
         return [
             'id'         => $this->id,

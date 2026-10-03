@@ -40,12 +40,8 @@ class NewTripRetryJob implements ShouldQueue
         $originGeohash = GeoHash::encode($trip->origin_lat, $trip->origin_lng, 5);
         $cells = array_merge([$originGeohash], GeoHash::neighbors($originGeohash));
 
-        $nearbyDrivers = [];
-        foreach ($cells as $cell) {
-            $nearbyDrivers = array_merge($nearbyDrivers, Redis::smembers("geohash:drivers:{$cell}"));
-        }
-
-        $nearbyDrivers = array_unique($nearbyDrivers);
+        // Union of the driver sets of all cells in one Redis call
+        $nearbyDrivers = Redis::sunion(...array_map(fn ($cell) => "geohash:drivers:{$cell}", $cells));
 
         $notification = app(NotificationService::class);
 
@@ -54,9 +50,10 @@ class NewTripRetryJob implements ShouldQueue
                 $query->where('trip_type_id', $trip->trip_type_id);
             })->get();
 
+            $destinationPreference = app(DriverDestinationPreferenceService::class);
             $filteredDrivers = [];
             foreach ($drivers as $driver) {
-                if (app(DriverDestinationPreferenceService::class)->matchesTrip($driver, $trip)) {
+                if ($destinationPreference->matchesTrip($driver, $trip)) {
                     $filteredDrivers[] = $driver;
                 }
             }

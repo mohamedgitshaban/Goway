@@ -25,7 +25,7 @@ class AdminChatController extends Controller
     {
         $admin = $request->user();
 
-        $query = Conversation::with(['user', 'latestMessage', 'trip'])
+        $query = Conversation::with(['user', 'admin', 'latestMessage.sender', 'messages.sender', 'trip'])
             ->support()
             ->withCount(['messages as unread_count' => function ($q) use ($admin) {
                 $q->where('sender_id', '!=', $admin->id)->whereNull('read_at');

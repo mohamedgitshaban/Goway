@@ -37,7 +37,7 @@ class AdminTripController extends Controller
         $sortBy = $request->input('sort_by', 'id');
         $sortDir = $request->input('sort_dir', 'desc');
 
-        $query = Trip::with(['client', 'driver', 'tripType']);
+        $query = Trip::with(Trip::resourceRelations());
 
         if ($search) {
             $query->where(function ($q) use ($search) {

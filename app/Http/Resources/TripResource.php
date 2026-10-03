@@ -72,7 +72,9 @@ class TripResource extends JsonResource
             'offer' => new OfferResource($this->offer),
             'coupon' => new CouponResource($this->coupon),
             
-            'trip_safety_recordings' => $this->safetyRecordings()->with('chunks')->get(),
+            'trip_safety_recordings' => $this->resource->relationLoaded('safetyRecordings')
+                ? $this->safetyRecordings->loadMissing('chunks')
+                : $this->safetyRecordings()->with('chunks')->get(),
         ];
     }
 }

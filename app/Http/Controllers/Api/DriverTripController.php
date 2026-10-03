@@ -107,7 +107,7 @@ class DriverTripController extends Controller
         $sortBy = $request->input('sort_by', 'id');
         $sortDir = $request->input('sort_dir', 'desc');
 
-        $query = Trip::with(['client', 'driver', 'tripType'])
+        $query = Trip::with(Trip::resourceRelations())
             ->where('driver_id', $driver->id);
 
         if ($search) {
@@ -176,15 +176,25 @@ class DriverTripController extends Controller
         $sumEffectiveTotal = 0;
         $sumDailyAverages = 0;
 
+        // One grouped query for the whole period instead of three counts per day.
+        $dailyCounts = Trip::where('driver_id', $driver->id)
+            ->whereDate('created_at', '>=', $startDate)
+            ->whereDate('created_at', '<=', $startDate->copy()->addDays($days - 1))
+            ->selectRaw('DATE(created_at) as day')
+            ->selectRaw('COUNT(*) as total_trips')
+            ->selectRaw('SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as completed_trips', ['completed'])
+            ->selectRaw('SUM(CASE WHEN status = ? THEN 1 ELSE 0 END) as cancelled_by_client', ['cancelled_by_client'])
+            ->groupByRaw('DATE(created_at)')
+            ->get()
+            ->keyBy('day');
+
         for ($i = 0; $i < $days; $i++) {
             $date = $startDate->copy()->addDays($i);
+            $counts = $dailyCounts->get($date->toDateString());
 
-            $baseQuery = Trip::where('driver_id', $driver->id)
-                ->whereDate('created_at', $date);
-
-            $totalTrips = (clone $baseQuery)->count();
-            $completedTrips = (clone $baseQuery)->where('status', 'completed')->count();
-            $cancelledByClient = (clone $baseQuery)->where('status', 'cancelled_by_client')->count();
+            $totalTrips = (int) ($counts->total_trips ?? 0);
+            $completedTrips = (int) ($counts->completed_trips ?? 0);
+            $cancelledByClient = (int) ($counts->cancelled_by_client ?? 0);
 
             $effectiveTotal = max(0, $totalTrips - $cancelledByClient);
             $dailyAverage = $effectiveTotal > 0 ? round($completedTrips / $effectiveTotal, 4) : 0.0;
